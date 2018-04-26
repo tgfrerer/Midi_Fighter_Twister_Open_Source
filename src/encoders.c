@@ -33,6 +33,14 @@
 
 #include <encoders.h>
 
+#ifndef MIDI_CC_HIGH_RESOLUTION_VELOCITY_PREFIX
+	/* tig:	prefix used for CC message according to 
+	 * High Resolution Velocity prefix spec (see: https://www.midi.org/downloads?task=callelement&format=raw&item_id=113&element=f85c494b-2b32-4109-b8c1-083cca2b7db6&method=download)
+	 */
+	#define MIDI_CC_HIGH_RESOLUTION_VELOCITY_PREFIX 0x58
+#endif
+
+
 // Locals
 uint8_t indicator_value_buffer[NUM_BANKS][16];	 // Holds the 7 bit indicator value
 
@@ -86,7 +94,7 @@ encoder_config_t encoder_settings[BANKED_ENCODERS];
 // Private Functions
 uint8_t get_virtual_encoder_id (uint8_t encoder_bank, uint8_t encoder_id);
 void encoderConfig(encoder_config_t *settings);
-void send_element_midi(enc_control_type_t type, uint8_t banked_encoder_index, uint8_t value, bool state);
+void send_switch_midi (uint8_t banked_encoder_idx, uint8_t value, bool state);
 void send_encoder_midi(uint8_t banked_encoder_idx, uint8_t value, bool state, bool shifted);
 uint8_t scale_encoder_value(int16_t value);
 int16_t clamp_encoder_raw_value(int16_t value);
@@ -715,7 +723,7 @@ void   process_encoder_input(void)
 							encoder_settings[banked_encoder_id].active_color : encoder_settings[banked_encoder_id].inactive_color;
 						}
 						// And send any MIDI
-						send_element_midi(SWITCH, banked_encoder_id, enc_switch_midi_state[encoder_bank][i],
+						send_switch_midi( banked_encoder_id, enc_switch_midi_state[encoder_bank][i],
 						enc_switch_midi_state[encoder_bank][i]);
 					}
 				}
@@ -736,7 +744,7 @@ void   process_encoder_input(void)
 						encoder_settings[banked_encoder_id].active_color : encoder_settings[banked_encoder_id].inactive_color;
 					}
 					// And send any MIDI
-					send_element_midi(SWITCH, banked_encoder_id, enc_switch_midi_state[encoder_bank][i],
+					send_switch_midi( banked_encoder_id, enc_switch_midi_state[encoder_bank][i],
 					enc_switch_midi_state[encoder_bank][i]);
 				}
 				break;
@@ -758,13 +766,13 @@ void   process_encoder_input(void)
 					}
 					// Send the updated encoder value
 					encoder_detent_counter[i] = 0;
-					send_element_midi(ENCODER, banked_encoder_id, control_change_value, true);  // Last Encoder call to 'send_element_midi', all others upgraded to 'send_encoder_midi'
+					send_encoder_midi(banked_encoder_id, control_change_value, true, false);
 					indicator_value_buffer[encoder_bank][i]=control_change_value;
 					// Then send the switch action
 					if (bit & get_enc_switch_down()) {						
-						send_element_midi(SWITCH, banked_encoder_id , 127, true);
+						send_switch_midi( banked_encoder_id , 127, true);
 					} else if (bit & get_enc_switch_up()){
-						send_element_midi(SWITCH, banked_encoder_id , 0, false);
+						send_switch_midi( banked_encoder_id , 0, false);
 					}
 				}
 				break;
@@ -918,33 +926,43 @@ void run_shift_mode(uint8_t page){
 void send_encoder_midi(uint8_t banked_encoder_idx, uint8_t value, bool state, bool shifted)
 {
 	uint8_t midi_channel = shifted ? encoder_settings[banked_encoder_idx].encoder_shift_midi_channel: encoder_settings[banked_encoder_idx].encoder_midi_channel;
-	// Sending encoder as note is not useful so this can likely be simplified
-	// once incremental messages are added
+
 	if (encoder_settings[banked_encoder_idx].encoder_midi_type == SEND_CC)
 	{
-		midi_stream_raw_cc(midi_channel,
-		encoder_settings[banked_encoder_idx].encoder_midi_number,
-		value);
-		if (encoder_settings[banked_encoder_idx].is_super_knob && (value >= global_super_knob_start)) {
+		
+		if (encoder_settings[banked_encoder_idx].is_super_knob) {
 
-			float step = 1/(((float)(global_super_knob_end - global_super_knob_start)) / 127.0f);
-					
-			uint16_t secondary_value = ((uint16_t)(step * (float)(value - global_super_knob_start)));
-					
-			// Clamp to 127
-			secondary_value = secondary_value > 127 ? 127 : secondary_value;
-
+			// tig: we're using super-knob to signal that this controller wants to use the
+			// High Resolution Velocity prefix (see: https://www.midi.org/downloads?task=callelement&format=raw&item_id=113&element=f85c494b-2b32-4109-b8c1-083cca2b7db6&method=download)
+			//
+			// The protocol specifies that a CC message with id 0x58 - where the payload data
+			// septet will be prefixed to the following note:
+			// `Bn 58 vv
+			//		vv = lower 7 bits affixed to the subsequent Note On / Note Off velocity`
+							
+			midi_stream_raw_cc(encoder_settings[banked_encoder_idx].encoder_midi_channel,
+			MIDI_CC_HIGH_RESOLUTION_VELOCITY_PREFIX, // high resolution velocity prefix
+			0x12); // marker value
+							
 			MIDI_Device_Flush(g_midi_interface_info);
-					
-			//midi_stream_raw_cc(encoder_settings[banked_encoder_idx].encoder_midi_channel,
-			midi_stream_raw_cc(midi_channel,  // !Summer2016Update: !Review: should 'super knob' use shift midi channel
-			encoder_settings[banked_encoder_idx].encoder_midi_number+64,
-			(uint8_t)secondary_value);		
-		}			
+		}
+
+		// tig: we always broadcast the actual value of the encoder, this
+		// is how we ensure backwards compatibility: these are the higher 7 bits,
+		// and so, even if the prefix isn't recognised we will still have the
+		// lower rez value.
+		midi_stream_raw_cc(encoder_settings[banked_encoder_idx].encoder_midi_channel, encoder_settings[banked_encoder_idx].encoder_midi_number, value);
+				
 	} else if (encoder_settings[banked_encoder_idx].encoder_midi_type == SEND_NOTE) {
+		// Sending encoder as note is not useful so this can likely be simplified
+		// once incremental messages are added
 		midi_stream_raw_note(midi_channel,
 		encoder_settings[banked_encoder_idx].encoder_midi_number,
 		true,
+		value);
+	} else if (encoder_settings[banked_encoder_idx].encoder_midi_type == SEND_REL_ENC){
+		midi_stream_raw_cc(encoder_settings[banked_encoder_idx].encoder_midi_channel,
+		encoder_settings[banked_encoder_idx].encoder_midi_number,
 		value);
 	}
 }
@@ -964,93 +982,31 @@ void send_encoder_midi(uint8_t banked_encoder_idx, uint8_t value, bool state, bo
  * 
  */
 
-void send_element_midi(enc_control_type_t type, uint8_t banked_encoder_idx, uint8_t value, bool state)
+
+void send_switch_midi( uint8_t banked_encoder_idx, uint8_t value, bool state)
 {
-	//if(banked_encoder_idx>15){
 	if(banked_encoder_idx >= BANKED_ENCODERS){
 		return;
 	}
 	
-	switch (type){
-		case ENCODER:{
-			// Sending encoder as note is not useful so this can likely be simplified
-			// once incremental messages are added
-			if (encoder_settings[banked_encoder_idx].encoder_midi_type == SEND_CC)
-			{
-				midi_stream_raw_cc(encoder_settings[banked_encoder_idx].encoder_midi_channel,
-										   encoder_settings[banked_encoder_idx].encoder_midi_number,
-						                   value);
-				if (encoder_settings[banked_encoder_idx].is_super_knob && (value >= global_super_knob_start)) { 
-
-					float step = 1/(((float)(global_super_knob_end - global_super_knob_start)) / 127.0f);
+	if (encoder_settings[banked_encoder_idx].switch_action_type == CC_HOLD ||
+		encoder_settings[banked_encoder_idx].switch_action_type == CC_TOGGLE ||
+		encoder_settings[banked_encoder_idx].switch_action_type == ENC_SHIFT_HOLD ||
+		encoder_settings[banked_encoder_idx].switch_action_type == ENC_SHIFT_TOGGLE ||
+		encoder_settings[banked_encoder_idx].switch_action_type == ENC_RESET_VALUE){
 					
-					uint16_t secondary_value = ((uint16_t)(step * (float)(value - global_super_knob_start)));
-					
-					// Clamp to 127
-					secondary_value = secondary_value > 127 ? 127 : secondary_value;
-
-					MIDI_Device_Flush(g_midi_interface_info);
-						
-					midi_stream_raw_cc(encoder_settings[banked_encoder_idx].encoder_midi_channel,
-										encoder_settings[banked_encoder_idx].encoder_midi_number+64,
-										(uint8_t)secondary_value);
-				
-				} 
-	
-			} else if (encoder_settings[banked_encoder_idx].encoder_midi_type == SEND_NOTE) {
-				midi_stream_raw_note(encoder_settings[banked_encoder_idx].encoder_midi_channel, 
-								     encoder_settings[banked_encoder_idx].encoder_midi_number, 
-								     true,
-									 value);
-			} else if (encoder_settings[banked_encoder_idx].encoder_midi_type == SEND_REL_ENC){ 
-				midi_stream_raw_cc(encoder_settings[banked_encoder_idx].encoder_midi_channel,
-										   encoder_settings[banked_encoder_idx].encoder_midi_number,
-										   value);
-			}
-		}
-		break;
-		case SWITCH:{		
-			if (encoder_settings[banked_encoder_idx].switch_action_type == CC_HOLD ||
-				encoder_settings[banked_encoder_idx].switch_action_type == CC_TOGGLE ||
-				encoder_settings[banked_encoder_idx].switch_action_type == ENC_SHIFT_HOLD ||
-				encoder_settings[banked_encoder_idx].switch_action_type == ENC_SHIFT_TOGGLE ||
-				encoder_settings[banked_encoder_idx].switch_action_type == ENC_RESET_VALUE){
-					
-				midi_stream_raw_cc(encoder_settings[banked_encoder_idx].switch_midi_channel, 
-								   encoder_settings[banked_encoder_idx].switch_midi_number, 
-								   value);
+		midi_stream_raw_cc(encoder_settings[banked_encoder_idx].switch_midi_channel, 
+							encoder_settings[banked_encoder_idx].switch_midi_number, 
+							value);
 								   
-			} else if (encoder_settings[banked_encoder_idx].switch_action_type == NOTE_HOLD ||
-				       encoder_settings[banked_encoder_idx].switch_action_type == NOTE_TOGGLE) {
+	} else if (encoder_settings[banked_encoder_idx].switch_action_type == NOTE_HOLD ||
+				encoder_settings[banked_encoder_idx].switch_action_type == NOTE_TOGGLE) {
 					
-				midi_stream_raw_note(encoder_settings[banked_encoder_idx].switch_midi_channel, 
-								   encoder_settings[banked_encoder_idx].switch_midi_number, 
-								   state,
-								   value);						   
-			} 
-		}
-		break;
-		default:{
-
-		}
-		break;
-		/*
-	    case SHIFT:{	
-			
-			if (false)// SHOULD SHIFT PAGES BE CC OR NOTE?)
-			{
-				midi_stream_raw_cc(SHIFT_CHANNEL, SHIFT_OFFSET + banked_encoder_idx, value);
-			} else {
-				midi_stream_raw_note(SHIFT_CHANNEL, SHIFT_OFFSET + banked_encoder_idx , state, value);
-			}
-			
-		}
-		break;*/
-		//case DEFAULT:{
-		//	
-		//}
-		//break;
-	}	
+		midi_stream_raw_note(encoder_settings[banked_encoder_idx].switch_midi_channel, 
+							encoder_settings[banked_encoder_idx].switch_midi_number, 
+							state,
+							value);						   
+	} 
 }
 
 
