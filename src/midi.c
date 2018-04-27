@@ -417,7 +417,7 @@ void process_midi_packet(MIDI_EventPacket_t input_event)
 			uint8_t note = input_event.Data2;
 			uint8_t velocity = input_event.Data3;
 			
-			if (channel == midi_system_channel){
+			if (channel == global_midi_system_channel){
 				if (note < 4){
 					if (velocity == 127){
 						change_encoder_bank(note);
@@ -451,7 +451,7 @@ void process_midi_packet(MIDI_EventPacket_t input_event)
 
 			process_element_midi(channel, SEND_CC, cc_number, cc_value, true);
 			
-			if (channel == midi_system_channel){
+			if (channel == global_midi_system_channel){
 				if (cc_number < 4){
 					if (cc_value == 127){
 						change_encoder_bank(cc_number);

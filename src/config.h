@@ -72,7 +72,7 @@
 		uint8_t global_super_knob_end;
 		uint8_t global_rgb_brightness;
 		uint8_t global_ind_brightness;
-		uint8_t midi_system_channel;
+		uint8_t global_midi_system_channel;
 	/* Function Prototypes: */
 	
 		void config_init (void);

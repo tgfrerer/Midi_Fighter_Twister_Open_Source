@@ -633,7 +633,7 @@ void run_shift_mode(uint8_t page){
 	for(uint8_t i=0;i<16;++i){
 		if (bit & get_enc_switch_down()) {
 			// Switch was just pressed
-			midi_stream_raw_note(midi_system_channel, SHIFT_OFFSET + (i+(page*16)) , true, 127);
+			midi_stream_raw_note(global_midi_system_channel, SHIFT_OFFSET + (i+(page*16)) , true, 127);
 			// Set state if override is not active
 			if(!(shift_mode_midi_override[page] & bit)){
 				shift_mode_switch_state[page] |= bit;
@@ -642,7 +642,7 @@ void run_shift_mode(uint8_t page){
 		} else if (bit & get_enc_switch_up()) {
 			// Switch was just released
 			//send_element_midi(SHIFT, i+(page*16), 0, false);
-			midi_stream_raw_note(midi_system_channel, SHIFT_OFFSET + (i+(page*16)), false, 0);
+			midi_stream_raw_note(global_midi_system_channel, SHIFT_OFFSET + (i+(page*16)), false, 0);
 			// Clear state if override is not active
 			if(!(shift_mode_midi_override[page] & bit)){
 				shift_mode_switch_state[page] &= ~bit;
@@ -756,7 +756,7 @@ void send_switch_midi( uint8_t banked_encoder_idx, uint8_t value, bool state)
 void process_element_midi(uint8_t channel, uint8_t type, uint8_t number, uint8_t value, uint8_t state)
 {
 	// If the incoming midi is in the system channel then its mapping is fixed 
-	if (channel == midi_system_channel) {
+	if (channel == global_midi_system_channel) {
 		// Fixed for notes for now
 		if ((type == SEND_NOTE) || (type == SEND_NOTE_OFF)){
 			if ((number >= SHIFT_OFFSET) && (number <= SHIFT_OFFSET+32)){

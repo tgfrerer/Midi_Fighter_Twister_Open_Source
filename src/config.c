@@ -99,7 +99,7 @@ void send_config_data (void)
     uint8_t payload[] = {0xf0, 0x00, MANUFACTURER_ID >> 8, MANUFACTURER_ID & 0x7f,
                                 SYSEX_COMMAND_PULL_CONF,	
                                 0x1, // 0x0 = request, 0x1 = response
-                                0 , midi_system_channel + 1,    // Not used ....
+                                0 , global_midi_system_channel + 1,    // Not used ....
 								1 , side_cfg->side_is_banked,
 								2 , side_cfg->sw_action[0],
 								3 , side_cfg->sw_action[1],
@@ -350,7 +350,7 @@ void load_config(void)
 	cpu_irq_disable();
 	
 	// Load system settings
-	midi_system_channel = eeprom_read(EE_MIDI_CHANNEL);
+	global_midi_system_channel = eeprom_read(EE_MIDI_CHANNEL);
 	
 	// Load side button settings
 	side_sw_settings_t side_sw_cfg;

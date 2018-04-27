@@ -128,9 +128,9 @@ void do_side_switch_function(uint8_t switch_num, switch_event_t state)
 		case CC_HOLD_SS:{
 			// The switch sends a CC so send that CC
 			if(state == SW_DOWN){
-				midi_stream_raw_cc(midi_system_channel, SIDE_SWITCH_OFFSET + switch_num + (bank*6) , 127);
+				midi_stream_raw_cc(global_midi_system_channel, SIDE_SWITCH_OFFSET + switch_num + (bank*6) , 127);
 			} else if(state == SW_UP) {
-				midi_stream_raw_cc(midi_system_channel, SIDE_SWITCH_OFFSET + switch_num + (bank*6) , 0);
+				midi_stream_raw_cc(global_midi_system_channel, SIDE_SWITCH_OFFSET + switch_num + (bank*6) , 0);
 			}
 		} break;
 		case CC_TOGGLE_SS:{
@@ -139,15 +139,15 @@ void do_side_switch_function(uint8_t switch_num, switch_event_t state)
 				uint8_t bit = 0x01 << switch_num;
 				side_switch_toggle_state[bank] ^= bit;
 				uint8_t value = side_switch_toggle_state[bank] & bit ? 127 : 0;
-				midi_stream_raw_cc(midi_system_channel, SIDE_SWITCH_OFFSET + switch_num + (bank*6) , value);
+				midi_stream_raw_cc(global_midi_system_channel, SIDE_SWITCH_OFFSET + switch_num + (bank*6) , value);
 			} 
 		} break;
 		case NOTE_HOLD_SS:{
 			// The switch sends a Note so send that Note
 			if(state == SW_DOWN){
-				midi_stream_raw_note(midi_system_channel, SIDE_SWITCH_OFFSET + switch_num + (bank*6), true, 127);
+				midi_stream_raw_note(global_midi_system_channel, SIDE_SWITCH_OFFSET + switch_num + (bank*6), true, 127);
 			} else if(state == SW_UP) {
-				midi_stream_raw_note(midi_system_channel, SIDE_SWITCH_OFFSET + switch_num + (bank*6), false , 0);
+				midi_stream_raw_note(global_midi_system_channel, SIDE_SWITCH_OFFSET + switch_num + (bank*6), false , 0);
 			}
 						
 		} break;
@@ -158,7 +158,7 @@ void do_side_switch_function(uint8_t switch_num, switch_event_t state)
 				side_switch_toggle_state[bank] ^= bit;
 				uint8_t velocity = side_switch_toggle_state[bank] & bit ? 127 : 0;
 				bool is_note_on = side_switch_toggle_state[bank] & bit ? true : false;
-				midi_stream_raw_note(midi_system_channel, SIDE_SWITCH_OFFSET + switch_num + (bank*6) , is_note_on, velocity);
+				midi_stream_raw_note(global_midi_system_channel, SIDE_SWITCH_OFFSET + switch_num + (bank*6) , is_note_on, velocity);
 			}
 		} break;
 		case SHIFT_PAGE_1:{
@@ -183,9 +183,9 @@ void do_side_switch_function(uint8_t switch_num, switch_event_t state)
 			// The switch increments the global bank setting
 			if((state == SW_DOWN) && (current_encoder_bank() < (NUM_BANKS-1))){
 				// Send bank change MIDI output
-				midi_stream_raw_cc(midi_system_channel, current_encoder_bank(), 0);
+				midi_stream_raw_cc(global_midi_system_channel, current_encoder_bank(), 0);
 				change_encoder_bank(current_encoder_bank()+1);
-				midi_stream_raw_cc(midi_system_channel, current_encoder_bank(), 127);
+				midi_stream_raw_cc(global_midi_system_channel, current_encoder_bank(), 127);
 			}
 						
 		} break;
@@ -193,17 +193,17 @@ void do_side_switch_function(uint8_t switch_num, switch_event_t state)
 			// The switch decrements the global bank setting
 			if((state == SW_DOWN) && (current_encoder_bank() > 0)){
 				// Send bank change MIDI output
-				midi_stream_raw_cc(midi_system_channel, current_encoder_bank(), 0);
+				midi_stream_raw_cc(global_midi_system_channel, current_encoder_bank(), 0);
 				change_encoder_bank(current_encoder_bank()-1);
-				midi_stream_raw_cc(midi_system_channel, current_encoder_bank(), 127);
+				midi_stream_raw_cc(global_midi_system_channel, current_encoder_bank(), 127);
 			}
 		} break;
 		case GLOBAL_BANK_1:{
 			// The switch sets the global bank setting to 1
 			if((state == SW_DOWN) && (NUM_BANKS > 0)){
 				// Send bank change MIDI output
-				midi_stream_raw_cc(midi_system_channel, current_encoder_bank(), 0);
-				midi_stream_raw_cc(midi_system_channel, 0, 127);
+				midi_stream_raw_cc(global_midi_system_channel, current_encoder_bank(), 0);
+				midi_stream_raw_cc(global_midi_system_channel, 0, 127);
 				change_encoder_bank(0);
 			}
 		} break;
@@ -211,8 +211,8 @@ void do_side_switch_function(uint8_t switch_num, switch_event_t state)
 			// The switch sets the global bank setting to 2
 			if((state == SW_DOWN) && (NUM_BANKS > 1)){
 				// Send bank change MIDI output
-				midi_stream_raw_cc(midi_system_channel, current_encoder_bank(), 0);
-				midi_stream_raw_cc(midi_system_channel, 1, 127);
+				midi_stream_raw_cc(global_midi_system_channel, current_encoder_bank(), 0);
+				midi_stream_raw_cc(global_midi_system_channel, 1, 127);
 				change_encoder_bank(1);
 			}
 		} break;
@@ -220,8 +220,8 @@ void do_side_switch_function(uint8_t switch_num, switch_event_t state)
 			// The switch sets the global bank setting to 3
 			if((state == SW_DOWN) && (NUM_BANKS > 2)){
 				// Send bank change MIDI output
-				midi_stream_raw_cc(midi_system_channel, current_encoder_bank(), 0);
-				midi_stream_raw_cc(midi_system_channel, 2, 127);
+				midi_stream_raw_cc(global_midi_system_channel, current_encoder_bank(), 0);
+				midi_stream_raw_cc(global_midi_system_channel, 2, 127);
 				change_encoder_bank(2);
 			}
 		} break;
@@ -229,8 +229,8 @@ void do_side_switch_function(uint8_t switch_num, switch_event_t state)
 			// The switch sets the global bank setting to 4
 			if((state == SW_DOWN) && (NUM_BANKS > 3)){
 				// Send bank change MIDI output
-				midi_stream_raw_cc(midi_system_channel, current_encoder_bank(), 0);
-				midi_stream_raw_cc(midi_system_channel, 3, 127);
+				midi_stream_raw_cc(global_midi_system_channel, current_encoder_bank(), 0);
+				midi_stream_raw_cc(global_midi_system_channel, 3, 127);
 				change_encoder_bank(3);
 			}
 		} break;
@@ -238,13 +238,13 @@ void do_side_switch_function(uint8_t switch_num, switch_event_t state)
 			// The switch sets the global bank setting to 4
 			if(state == SW_DOWN){
 				// Send bank change MIDI output
-				midi_stream_raw_cc(midi_system_channel, current_encoder_bank(), 0);
+				midi_stream_raw_cc(global_midi_system_channel, current_encoder_bank(), 0);
 				if(current_encoder_bank() == (NUM_BANKS-1)){
 					change_encoder_bank(0);
 				} else {
 					change_encoder_bank(current_encoder_bank()+1);
 				}
-				midi_stream_raw_cc(midi_system_channel, current_encoder_bank(), 127);
+				midi_stream_raw_cc(global_midi_system_channel, current_encoder_bank(), 127);
 			}
 		}
 		break;
