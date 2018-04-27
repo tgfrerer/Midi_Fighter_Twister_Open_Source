@@ -33,7 +33,7 @@ uint8_t global_super_knob_end;
 #define GLOBAL_TAG_HIGH_LOWER 30
 #define ENCODER_RESV_RANGE (GLOBAL_TAG_HIGH_LOWER - GLOBAL_TAG_LOW_UPPER)
 
-void global_tv_table_decode(global_tvtable_t* table, uint8_t* buffer, uint8_t size)
+static void global_tv_table_decode(global_tvtable_t* table, uint8_t* buffer, uint8_t size)
 {
     uint8_t idx = 0;
     uint8_t tag;
@@ -49,7 +49,7 @@ void global_tv_table_decode(global_tvtable_t* table, uint8_t* buffer, uint8_t si
     }
 }
 
-void sysExCmdPushConfig (uint8_t length, uint8_t* buffer)
+static void sysExCmdPushConfig (uint8_t length, uint8_t* buffer)
 {
 	
 	// First disable watch dog as EEPROM is slow
@@ -116,7 +116,7 @@ void send_config_data (void)
     midi_stream_sysex(sizeof(payload), payload);
 }
 
-void sysExCmdPullConfig (uint8_t length, uint8_t* buffer)
+static void sysExCmdPullConfig (uint8_t length, uint8_t* buffer)
 {
     // Change settings
     if (length > 0 && *buffer == 0x0) { // Received request
@@ -124,7 +124,7 @@ void sysExCmdPullConfig (uint8_t length, uint8_t* buffer)
     }
 }
 
-void sysExCmdSystem (uint8_t length, uint8_t* buffer)
+static void sysExCmdSystem (uint8_t length, uint8_t* buffer)
 {
     if (length == 0) return;
     
@@ -205,7 +205,7 @@ NOTE: Binary data must either avoid setting the MSB, or encode octets as packed 
 
 **********/
 //__attribute__((optimize("O0")))
-void sysExCmdBulkXfer(uint8_t length, uint8_t* buffer) // Process/ParseSysexMessage (incoming)
+static void sysExCmdBulkXfer(uint8_t length, uint8_t* buffer) // Process/ParseSysexMessage (incoming)
 {   
     if (length > 2) {
 		
@@ -213,47 +213,47 @@ void sysExCmdBulkXfer(uint8_t length, uint8_t* buffer) // Process/ParseSysexMess
         uint8_t sysex_tag = *buffer++; // What is being transferred
         
         if (command == 0) { // PUSH (Change/Update Settings)
-            if (length > 5) {
-                if (sysex_tag == 0x0) return; // Extended tags not supported
-                uint8_t part = *buffer++; // Transfers may consist of multiple parts
-                if (part == 0) return; // Invalid part number
-                uint8_t total = *buffer++;
-                uint8_t size = *buffer++;
-                if (size > length - 5) return; // Not enough data to support payload
-                
-               // buffer+=1;
-		// Encoder and Accompanying Push Switch are together consider one object of 'config[]'
-		uint8_t bank    = (sysex_tag-1)/16;  // (starting at object 1) 16 Objects per Bank
-		uint8_t encoder = (sysex_tag-1)%16;  // Encoder+Push Switch ID
+	        if (length > 5) {
+		        if (sysex_tag == 0x0) return; // Extended tags not supported
+		        uint8_t part = *buffer++; // Transfers may consist of multiple parts
+		        if (part == 0) return; // Invalid part number
+		        uint8_t total = *buffer++;
+		        uint8_t size = *buffer++;
+		        if (size > length - 5) return; // Not enough data to support payload
+		        
+		        // buffer+=1;
+		        // Encoder and Accompanying Push Switch are together consider one object of 'config[]'
+		        uint8_t bank    = (sysex_tag-1)/16;  // (starting at object 1) 16 Objects per Bank
+		        uint8_t encoder = (sysex_tag-1)%16;  // Encoder+Push Switch ID
 
-		encoder_config_t config = {{0}};     // encoder_config_t is output map+ all settings
+		        encoder_config_t config = {{0}};     // encoder_config_t is output map+ all settings
 
-		// First we set all bytes to invalid values, this avoids
-		// saving any settings which where not included in this xfer
-		for(uint8_t i=0;i<ENC_CFG_SIZE;++i){
-			config.bytes[i] = 0x80; // 8th bit is never set for valid data
-		}
+		        // First we set all bytes to invalid values, this avoids
+		        // saving any settings which where not included in this xfer
+		        for(uint8_t i=0;i<ENC_CFG_SIZE;++i){
+			        config.bytes[i] = 0x80; // 8th bit is never set for valid data
+		        }
 
-		// Now we decode the buffer
-		uint8_t idx = 0;
-		uint8_t tag;
-		while (idx < size - 1) {  // While not hitting the last byte (0xF7)
-			tag = buffer[idx++] - 10; //Match Utility Tag's  // (Sysex Tag 10) -> (Firmware Tag 0)
-			if (tag < ENC_CFG_SIZE) {
-				config.bytes[tag] = buffer[idx];
-			}
-			++idx;
-		}
+		        // Now we decode the buffer
+		        uint8_t idx = 0;
+		        uint8_t tag;
+		        while (idx < size - 1) {  // While not hitting the last byte (0xF7)
+			        tag = buffer[idx++] - 10; //Match Utility Tag's  // (Sysex Tag 10) -> (Firmware Tag 0)
+			        if (tag < ENC_CFG_SIZE) {
+				        config.bytes[tag] = buffer[idx];
+			        }
+			        ++idx;
+		        }
 
-		// And save the new settings to eeprom
-		save_encoder_config(bank, encoder, &config);
+		        // And save the new settings to eeprom
+		        save_encoder_config(bank, encoder, &config);
 
-		// Disable the display until all config data is received
-		display_disable();
-		// Reset the watchdog timer to avoid a reset while processing the sysex.
-		wdt_reset();
-            }
-            
+		        // Disable the display until all config data is received
+		        display_disable();
+		        // Reset the watchdog timer to avoid a reset while processing the sysex.
+		        wdt_reset();
+	        }
+	        
         } else if (command == 1) { // PULL  (Request/Get Settings)
 	
 			uint8_t bank = 0;
