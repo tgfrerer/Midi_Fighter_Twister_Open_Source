@@ -48,14 +48,8 @@
 
 		// Encoder Switch Type Enum
 		typedef enum enc_sw_type {
-			CC_HOLD,
 			CC_TOGGLE,
-			NOTE_HOLD,
-			NOTE_TOGGLE,
-			ENC_RESET_VALUE,
 			ENC_FINE_ADJUST,
-			ENC_SHIFT_HOLD,
-			ENC_SHIFT_TOGGLE,
 		} enc_sw_action_type_t;
 	
 		// Encoder switch movement enum
@@ -145,8 +139,7 @@
 		void refresh_display(void);
 		
 		void process_element_midi(uint8_t channel, uint8_t type, uint8_t number, uint8_t value, uint8_t state);
-		//void process_indicator_update(uint8_t idx, uint8_t value);
-		void process_indicator_update(uint8_t idx, uint8_t value, uint8_t shifted); // !Summer2016Update: Shifted Encoder Value Feedback
+		void process_indicator_update(uint8_t idx, uint8_t value); 
 		void process_sw_toggle_update(uint8_t idx, uint8_t value); // !Summer2016Update: Toggle State Feedback
 		void process_sw_encoder_shift_update(uint8_t idx, uint8_t value); // !Summer2016Update: Shifted Encoder Switch: Toggle State Feedback
 		void process_sw_rgb_update(uint8_t idx, uint8_t value);
@@ -161,7 +154,6 @@
 		
 		bool encoder_is_in_detent(int16_t value);
 		bool encoder_is_in_deadzone(int16_t value);
-		bool encoder_is_in_shift_state(uint8_t bank, uint8_t encoder);
 		bool encoder_midi_type_is_relative(uint8_t encoder);
 
 #endif /* ENCODERS_H_ */ 

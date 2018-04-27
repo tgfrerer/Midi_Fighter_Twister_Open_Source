@@ -82,7 +82,7 @@
 
 // EEPROM Constants -------------------------------------------------------
 
-#define EEPROM_LAYOUT			         7	//The EEPROM layout version
+#define EEPROM_LAYOUT			        1	//The EEPROM layout version (latest midifighter has 7)
 
 // EEPROM Memory Locations for configurable settings
 
@@ -144,7 +144,7 @@
 //Encoder
 #define DEF_ENC_DETENT          false
 #define DEF_ENC_MOVEMENT        DIRECT
-#define DEF_SW_ACTION           CC_HOLD
+#define DEF_SW_ACTION           ENC_FINE_ADJUST
 #define DEF_SW_MIDI_TYPE		CC_HOLD			// Deprecated - should be REMOVED
 #define DEF_ENC_MIDI_TYPE       SEND_CC			// Default to CC define as 0x00 for Note
 #define DEF_ENC_CH		        0x00            // Enc def Ch = 0
@@ -155,27 +155,18 @@
 
 // !Summer2016Update mark: Default Colors (first used in build 20160622
 #define DEF_ACTIVE_COLOR_BANK1		25
-#define DEF_INACTIVE_COLOR_BANK1      113
+#define DEF_INACTIVE_COLOR_BANK1   113
 #define DEF_ACTIVE_COLOR_BANK2		81
-#define DEF_INACTIVE_COLOR_BANK2      63
+#define DEF_INACTIVE_COLOR_BANK2    63
 #define DEF_ACTIVE_COLOR_BANK3		25
-#define DEF_INACTIVE_COLOR_BANK3      100
+#define DEF_INACTIVE_COLOR_BANK3   100
 #define DEF_ACTIVE_COLOR_BANK4		25
-#define DEF_INACTIVE_COLOR_BANK4      0
+#define DEF_INACTIVE_COLOR_BANK4     0
 
 
-// !Summer2016Update mark: Default Colors (last used in build 20160615)
-//~ #define DEF_ACTIVE_COLOR_BANK1		25
-//~ #define DEF_INACTIVE_COLOR_BANK1      0
-//~ #define DEF_ACTIVE_COLOR_BANK2		69
-//~ #define DEF_INACTIVE_COLOR_BANK2      0
-//~ #define DEF_ACTIVE_COLOR_BANK3		100
-//~ #define DEF_INACTIVE_COLOR_BANK3      0
-//~ #define DEF_ACTIVE_COLOR_BANK4		88
-//~ #define DEF_INACTIVE_COLOR_BANK4      0
 
 #define DEF_DETENT_COLOR        63
 #define DEF_INDICATOR_TYPE      BLENDED_BAR
-#define DEF_IS_SUPER_KNOB       false
+#define DEF_IS_SUPER_KNOB       true
 
 #endif /* CONSTANTS_H_ */

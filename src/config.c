@@ -275,19 +275,19 @@ static void sysExCmdBulkXfer(uint8_t length, uint8_t* buffer) // Process/ParseSy
 			
 			uint8_t config_data[] = { 10 , enc_cfg.has_detent,
 									  11, enc_cfg.movement,
-									 12, enc_cfg.switch_action_type,
-									 13, enc_cfg.switch_midi_channel+1,
-									 14, enc_cfg.switch_midi_number,
-									 15, 0x00,//enc_cfg.switch_midi_type,   //!Summer2016Update enc_cfg.encoder_shift_midi_channel
-									 16, enc_cfg.encoder_midi_channel+1,
-									 17, enc_cfg.encoder_midi_number,
-									 18, enc_cfg.encoder_midi_type,
-									 19, enc_cfg.active_color,
-								     20, enc_cfg.inactive_color,
-									 21, enc_cfg.detent_color,	
-									 22, enc_cfg.indicator_display_type,
-									 23, enc_cfg.is_super_knob,
-									 24, enc_cfg.encoder_shift_midi_channel, // !Summer2016Update
+									  12, enc_cfg.switch_action_type,
+									  13, enc_cfg.switch_midi_channel+1,
+									  14, enc_cfg.switch_midi_number,
+									  15, 0x00,//enc_cfg.switch_midi_type,   //!Summer2016Update enc_cfg.encoder_shift_midi_channel
+									  16, enc_cfg.encoder_midi_channel+1,
+									  17, enc_cfg.encoder_midi_number,
+									  18, enc_cfg.encoder_midi_type,
+									  19, enc_cfg.active_color,
+								      20, enc_cfg.inactive_color,
+									  21, enc_cfg.detent_color,	
+									  22, enc_cfg.indicator_display_type,
+									  23, enc_cfg.is_super_knob,
+									  24, enc_cfg.encoder_shift_midi_channel, // !Summer2016Update
 									};
 				
 			// Total number of bytes to transfer
