@@ -102,12 +102,6 @@ src\LUFA\LUFA\Drivers\USB\Core\XMEGA\USBInterrupt_XMEGA.c
 
 src\self_test.c
 
-src\sequencer.c
-
-src\sequencer_display.c
-
-src\sequencer_input.c
-
 src\sysex.c
 
 src\side_switch.c

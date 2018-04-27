@@ -37,7 +37,6 @@
 	
 	#include "encoders.h"
 	#include "sysex.h"
-	#include "sequencer.h"
 
 /*	Macros: */
 

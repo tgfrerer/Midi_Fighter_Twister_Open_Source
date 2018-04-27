@@ -64,7 +64,6 @@
 			normal,     // Device is in normal operation mode
 			shift1,		// Device is in shift page 1
 			shift2,		// Device is in shift page 2
-			sequencer,  // Device is in sequencer mode
 		} op_mode_t;
 
 	/* Variables */

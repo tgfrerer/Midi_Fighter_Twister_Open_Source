@@ -43,7 +43,6 @@
 #include "side_switch.h"
 #include "Descriptors.h"
 #include "jump_to_bootloader.h"
-#include "sequencer.h"
 #include "self_test.h"
 
 //#define DEMO 
@@ -65,7 +64,6 @@ int main (void)
 	encoders_init();
 	side_switch_init();	
 	display_init();
-	sequencer_init();
 	
 	// Disable the display until we are connected and ready to start the 
 	// start-up animation.
@@ -100,9 +98,10 @@ int main (void)
 	// Main Loop
 	do {
 		
-			// Force display to rainbow demo		
+				
 #ifdef DEMO
-			if(update_encoder_switch_state() == 0x0001)
+			// Force display to rainbow demo	
+if(update_encoder_switch_state() == 0x0001)
 			{
 				display_enable();
 				while(true){
@@ -150,12 +149,6 @@ int main (void)
 					
 					run_shift_mode(1);
 					process_side_switch_input();
-				}
-				break;
-				case sequencer:{
-					process_seq_side_buttons();
-					process_sequencer_input();	
-					run_sequencer_display();
 				}
 				break;
 			}

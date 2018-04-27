@@ -102,16 +102,6 @@ void process_side_switch_input(void)
 
 	uint8_t enc_bank = current_encoder_bank();
 	
-	// Check for Sequencer Activation Combination (Both Middle at same time)
-	if ((get_side_switch_state() & 0x12) == 0x12){
-		if ((prev_side_switch_state & 0x12) == 0x02 || (prev_side_switch_state & 0x12) == 0x10){
-			set_op_mode(sequencer);
-			init_seq_display();
-			prev_side_switch_state = 0;
-		}
-		return;
-	}
-	
 	for(uint8_t i = 0; i <6;++i) {
 		
 		if(get_side_switch_down() & bit){

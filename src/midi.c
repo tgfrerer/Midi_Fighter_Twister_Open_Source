@@ -188,9 +188,6 @@ int32_t update_clock_counter(void)
 	// the point at which it schedules triggers.
 	if((abs(delta) < 5) && (getTickCount() == 1)){
 		clock_stable = true;
-		if(seq_traktor_mode && sequencerDisplayState == OFF){
-			sequencerDisplayState = DEFAULT;
-		}
 	} else {
 		//clock_stable = false;
 	}
@@ -219,12 +216,11 @@ bool clock_is_stable(void)
 static int8_t tick_counter = 0;
 
 // Handler for Midi Clock tick, this counts from 0 to 23
-// The MIDI USB CABLE HAS CRAZY COCK JITTER - this causes timing issues
+// The MIDI USB CABLE HAS CRAZY CLOCK JITTER - this causes timing issues
 void midi_clock(void)
 {
 	// !Summer2016Update: midi_clock animation
 	uint16_t counts = update_clock_counter();
-	seq_midi_clock_handler(tick_counter);
 
 	// If not enabled enable MIDI Clock for animations 
 	// - !Summer2016Update: midi clock for animations
@@ -269,17 +265,12 @@ void real_time_start(void)
 	prev_count = 0;
 	// Todo: Send Note Offs for any active notes ..
 	clock_stable = false;
-	if (seq_state == PLAYBACK){
-		seq_state == WAIT_FOR_SYNC;
-	}
 }
 
 // Handle real time stop messages
 void real_time_stop(void)
 {
-	// Reset the sequencer position
-	reset_sequence();
-	// Cancel any schedules sequencer tasks
+	// Cancel any scheduled sequencer tasks
 	cancel_task();
 }
 
@@ -468,10 +459,6 @@ void process_midi_packet(MIDI_EventPacket_t input_event)
 				}
 			}
 			
-			// Handle Sequencer Controls in here
-			if (channel == SEQ_CHANNEL){
-				process_seq_midi(cc_number, cc_value);
-			}
 		}
 		break;
 		case 0x4 :
