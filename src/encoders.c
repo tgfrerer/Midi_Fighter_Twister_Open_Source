@@ -746,16 +746,11 @@ void send_switch_midi( uint8_t banked_encoder_idx, uint8_t value, bool state)
  * 
  */
 
-// !review: does this really need to be here?
-// - only if the user has access to a 'Send All Encoder Values' Function
-// - or if we wish to support multiple encoders in the same bank with the same mapping (which is frivolous)
-// -- Otherwise the Change Bank (change_encoder_bank) will take care of transferring these values.
-#define ENABLE_DUPLICATE_INPUT_MAPPINGS 1
 
 // Midi Feedback - Main Routine
 void process_element_midi(uint8_t channel, uint8_t type, uint8_t number, uint8_t value, uint8_t state)
 {
-	// If the incoming midi is in the system channel then its mapping is fixed 
+	// If the incoming midi is in the system channel then its mapping is fixed
 	if (channel == global_midi_system_channel) {
 		// Fixed for notes for now
 		if ((type == SEND_NOTE) || (type == SEND_NOTE_OFF)){
@@ -772,70 +767,63 @@ void process_element_midi(uint8_t channel, uint8_t type, uint8_t number, uint8_t
 				}
 			}
 		}
-	} else {
-		// Otherwise the input is re mappable so scan through the input map for a match
-		for(uint8_t i=0;i<64;++i){
-			// Search the input map for a match
-			if(encoder_settings[i].encoder_midi_number == number){
-				uint8_t output_type = encoder_settings[i].encoder_midi_type;
-				// Check Encoder Mapping for a Match
-				if(encoder_settings[i].encoder_midi_channel == channel){
-					// Matched to an encoder indicator
-					// - !Summer2016Update: MIDI Type Filtering for MIDI Feedback
-					if(type == SEND_CC){  
-						if (output_type == SEND_CC || output_type == SEND_REL_ENC) // Ensure MIDI Type Matches
-						{
-							process_indicator_update(i, value); // !Summer2016Update: 0 = non-shifted encoder
-						}
-					}
-					else { // Other Valid types that reach here are SEND_NOTE and SEND_NOTE_OFF, encoders treat them the same
-						if (output_type == SEND_NOTE)
-						{
-							process_indicator_update(i, value); // !Summer2016Update: 0 = non-shifted encoder		
-						}
-					}
-					// !Summer2016Update: To allow for duplicate mappings across banks, we must continue to check for duplicate mappings
-					// - Same goes for all other statements.
-					#if ENABLE_DUPLICATE_INPUT_MAPPINGS == 0
-					return;
-					#endif
-				} 
-			} 
-			// Check Switch Mapping for a Match
-			if (encoder_settings[i].switch_midi_number == number){
-				if(encoder_settings[i].switch_midi_channel == channel){
-					// Matched to an encoder switch
-					uint8_t action_type = encoder_settings[i].switch_action_type;
-					// Check for Message type Match
-					// - !Summer2016Update: MIDI Type Filtering for MIDI Feedback
+
+		return;
+	}
+
+	//---------| invariant: channel is not midi_system_channel
+
+	// Otherwise the input is re mappable so scan through the input map for a match
+	for(uint8_t i=0;i<64;++i){
+		// Search the input map for a match
+		if(encoder_settings[i].encoder_midi_number == number){
+			uint8_t output_type = encoder_settings[i].encoder_midi_type;
+			// Check Encoder Mapping for a Match
+			if(encoder_settings[i].encoder_midi_channel == channel){
+				// Matched to an encoder indicator
+				// - !Summer2016Update: MIDI Type Filtering for MIDI Feedback
+				if(type == SEND_CC){
+					if (output_type == SEND_CC || output_type == SEND_REL_ENC) // Ensure MIDI Type Matches
 					{
-						// All other Switch Output Types will output a CC Message, and should expect to receive one in return.
-						if (type == SEND_CC){
-							process_sw_rgb_update(i, value);
-							process_sw_toggle_update(i, value); 
-							#if ENABLE_DUPLICATE_INPUT_MAPPINGS == 0
-							return;
-							#endif
-						}
+						process_indicator_update(i, value); // !Summer2016Update: 0 = non-shifted encoder
 					}
-				} else if (channel == ENCODER_ANIMATION_CHANNEL) { 
-					// Note: Animations are executed, so long as the number matches the switch
-					// - This allows backward compatibility with a very lenient earlier protocol for twister (2014 builds)
-					// Matched to encoder switch animation
-					process_encoder_animation_update(i, value);
-					#if ENABLE_DUPLICATE_INPUT_MAPPINGS == 0
-					return;
-					#endif
-				} else if (channel == SWITCH_ANIMATION_CHANNEL) {  // 2016: Dual software animation channels update
-					// Matched to encoder switch animation
-					process_sw_animation_update(i, value);
-					#if ENABLE_DUPLICATE_INPUT_MAPPINGS == 0
-					return;
-					#endif
 				}
+				else { // Other Valid types that reach here are SEND_NOTE and SEND_NOTE_OFF, encoders treat them the same
+					if (output_type == SEND_NOTE)
+					{
+						process_indicator_update(i, value); // !Summer2016Update: 0 = non-shifted encoder
+					}
+				}
+				// !Summer2016Update: To allow for duplicate mappings across banks, we must continue to check for duplicate mappings
+				// - Same goes for all other statements.
+			}
+		}
+		// Check Switch Mapping for a Match
+		if (encoder_settings[i].switch_midi_number == number){
+			if(encoder_settings[i].switch_midi_channel == channel){
+				// Matched to an encoder switch
+				uint8_t action_type = encoder_settings[i].switch_action_type;
+				// Check for Message type Match
+				// - !Summer2016Update: MIDI Type Filtering for MIDI Feedback
+				{
+					// All other Switch Output Types will output a CC Message, and should expect to receive one in return.
+					if (type == SEND_CC){
+						process_sw_rgb_update(i, value);
+						process_sw_toggle_update(i, value);
+					}
+				}
+				} else if (channel == ENCODER_ANIMATION_CHANNEL) {
+				// Note: Animations are executed, so long as the number matches the switch
+				// - This allows backward compatibility with a very lenient earlier protocol for twister (2014 builds)
+				// Matched to encoder switch animation
+				process_encoder_animation_update(i, value);
+				} else if (channel == SWITCH_ANIMATION_CHANNEL) {  // 2016: Dual software animation channels update
+				// Matched to encoder switch animation
+				process_sw_animation_update(i, value);
 			}
 		}
 	}
+	
 }
 
 // Midi Feedback - Encoder Value Indicator Displays
