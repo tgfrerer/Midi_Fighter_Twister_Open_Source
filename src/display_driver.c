@@ -259,13 +259,10 @@ static void display_frame_timer(void)
 		dma_channel_write_source(DMA_CHANNEL, (uint16_t)(uintptr_t)display_frame_buffer);								
 	}
 	
-	if(!midi_clock_enabled) // !Summer2016Update midi_clock animations
-	{
-		tick += 1;
-		if(tick == 255){
-			animation_counter +=1;
-			tick = 0;
-		}
+	tick += 1; // will automatically roll over to 0 on overflow
+
+	if(tick == 0){
+		animation_counter +=1;
 	}
 }
 
@@ -319,12 +316,12 @@ void set_encoder_indicator_level(uint8_t encoder, uint8_t position,
 			ptr[1]  = 0xFF;
 
 			// Write Mask A
-			if ((i*(127/NUM_OF_FRAMES)) < bit_masks.pattern_A_brightness) { // !revision: 127/NUM_OF_FRAMES is constant, why do this math?
+			if ((i*(127/NUM_OF_FRAMES)) < bit_masks.pattern_A_brightness) { 
 				ptr[0] &= ~mask_A_lower_byte;
 				ptr[1] &= ~mask_A_upper_byte;
 			}
 			// Write Mask B
-			if ((i*(127/NUM_OF_FRAMES)) < bit_masks.pattern_B_brightness) { // !revision: 127/NUM_OF_FRAMES is constant, why do this math?
+			if ((i*(127/NUM_OF_FRAMES)) < bit_masks.pattern_B_brightness) { 
 				ptr[0] &= ~mask_B_lower_byte;
 				ptr[1] &= ~mask_B_upper_byte;
 			}
@@ -367,7 +364,7 @@ int build_indicator_pattern(indicator_bit_mask_t *result,
 	bool        is_bar_display     = false;
 	float       remainder = 0;
 	
-	if (type == ENC_DISPLAY_MODE_BLENDED_BAR){// || type == BLENDED_DOT_DISPLAY) {
+	if (type == ENC_DISPLAY_MODE_BLENDED_BAR){
 		is_blended = true;
 	}
 	if (type ==  ENC_DISPLAY_MODE_BAR || type == ENC_DISPLAY_MODE_BLENDED_BAR) {
@@ -782,13 +779,8 @@ uint8_t pulse_animation(uint8_t pulse_rate)
 {
 	const float rgb_freq = .04927f;
 	static uint8_t rgb_step;
-	//original_code: rgb_step  = (uint8_t)(((animation_counter<<5)>>(8-pulse_rate)) & 0xFF);
-	if(!midi_clock_enabled){ // !Summer2016Update: midi_clock_animations
-		rgb_step  = (uint8_t)(((animation_counter<<5)>>(8-pulse_rate)) & 0xFF);
-	} 
-	else{
-		rgb_step  = (uint8_t)(((animation_counter<<5)>>(8-pulse_rate)) & 0xFF); // !review: << 5 is an estimate
-	}
+	
+	rgb_step  = (uint8_t)(((animation_counter<<5)>>(8-pulse_rate)) & 0xFF);
 
 	uint8_t level = (uint8_t)(sin(rgb_step*rgb_freq)*126)+128;
 

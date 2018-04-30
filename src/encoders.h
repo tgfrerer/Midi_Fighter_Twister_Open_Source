@@ -149,8 +149,6 @@
 		void process_encoder_animation_update(uint8_t idx, uint8_t value);
 		void process_shift_update(uint8_t idx, uint8_t value);
 		
-		void run_shift_mode(uint8_t page);
-		
 		uint8_t scale_encoder_value(int16_t value);
 		int16_t clamp_encoder_raw_value(int16_t value);
 		

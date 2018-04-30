@@ -98,88 +98,59 @@ int main (void)
 	// Main Loop
 	do {
 		
-				
-#ifdef DEMO
-			// Force display to rainbow demo	
-if(update_encoder_switch_state() == 0x0001)
+		
+		// Process any encoder movements or changes to the switch state
+		process_encoder_input();
+		
+		// Check for any change to the encoder state and refresh the display, because
+		// redrawing any display is slow we only check and update 1 encoder per main loop
+		#if ENABLE_MAX_LED_UPDATE_SPEED > 0
+		#warning LED Controllers are being Updated at a Higher Speed! This results in latency up to 8ms.
+		// !Summer2016Update: improve LED Update Times
+		// Performance Testing: Dual Animations running on Every Encoder. MIDI Feedback sent Constantly 1-message/ millisecond.
+		// - Target Range is a maximum of 8ms.
+		// < 1: latency = 2ms
+		// < 4: latency in range (4-6ms)
+		// < 6: latency in range (6-8ms)*
+		// < 8: latency in range (8-10ms)
+		// < 16:latency = (16-20ms)
+		for(uint8_t encoder_display_counter = 0; encoder_display_counter < 6; encoder_display_counter++)
+		{
+			update_encoder_display();
+		}
+		#else
+		update_encoder_display();
+		#endif
+		// Now we have dealt with the encoders we check for side switch state changes
+		// Side switches either send MIDI or carry out an action
+		process_side_switch_input();
+		
+		
+		if(midi_is_usb())
+		{
+			MIDI_Device_USBTask(g_midi_interface_info);
+			USB_USBTask();
+			
+			// If we are using the USB MIDI connection check for and process received MIDI packets
+			MIDI_EventPacket_t ReceivedMIDIEvent;
+			
+			// For now we disable interrupts while processing incoming MIDI, this avoids missed clock
+			// ticks. This could probably be solved more elegantly but it works
+			PMIC.CTRL &= ~(PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm);
+			
+			while (MIDI_Device_ReceiveEventPacket(g_midi_interface_info, &ReceivedMIDIEvent))
 			{
-				display_enable();
-				while(true){
-					rainbow_demo();
-				}
+				process_midi_packet(ReceivedMIDIEvent);
 			}
-#endif		
-
-			switch (get_op_mode()) {
-				case normal:{
-					// Process any encoder movements or changes to the switch state
-					process_encoder_input();
-			
-					// Check for any change to the encoder state and refresh the display, because
-					// redrawing any display is slow we only check and update 1 encoder per main loop
-					#if ENABLE_MAX_LED_UPDATE_SPEED > 0
-					 #warning LED Controllers are being Updated at a Higher Speed! This results in latency up to 8ms.
-					 // !Summer2016Update: improve LED Update Times
-					 // Performance Testing: Dual Animations running on Every Encoder. MIDI Feedback sent Constantly 1-message/ millisecond.
-					 // - Target Range is a maximum of 8ms.
-					 // < 1: latency = 2ms
-					 // < 4: latency in range (4-6ms)
-					 // < 6: latency in range (6-8ms)*
-					 // < 8: latency in range (8-10ms)
-					 // < 16:latency = (16-20ms)
-					 for(uint8_t encoder_display_counter = 0; encoder_display_counter < 6; encoder_display_counter++)  
-					 {
-						update_encoder_display();
-					 }
-					#else
-					 update_encoder_display();
-					#endif
-					// Now we have dealt with the encoders we check for side switch state changes
-					// Side switches either send MIDI or carry out an action
-					process_side_switch_input();
-				}
-				break;
-				case shift1:{
-					
-					run_shift_mode(0);
-					process_side_switch_input();	
-				}
-				break;
-				case shift2:{
-					
-					run_shift_mode(1);
-					process_side_switch_input();
-				}
-				break;
-			}
-			
-			
-			
-			if(midi_is_usb())
-			{
-				MIDI_Device_USBTask(g_midi_interface_info);
-				USB_USBTask();
-				
-				// If we are using the USB MIDI connection check for and process received MIDI packets
-				MIDI_EventPacket_t ReceivedMIDIEvent;
-				
-				// For now we disable interrupts while processing incoming MIDI, this avoids missed clock
-				// ticks. This could probably be solved more elegantly but it works
-				PMIC.CTRL &= ~(PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm);
-				
-				while (MIDI_Device_ReceiveEventPacket(g_midi_interface_info, &ReceivedMIDIEvent))
-				{
-					process_midi_packet(ReceivedMIDIEvent);
-				}				
-				PMIC.CTRL = PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm | PMIC_HILVLEN_bm;
+			PMIC.CTRL = PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm | PMIC_HILVLEN_bm;
 			} else {
-				// Otherwise process any legacy MIDI packets
-				PMIC.CTRL &= ~(PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm);
-				process_legacy_packet();
-				PMIC.CTRL = PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm | PMIC_HILVLEN_bm;
-			}
-			
-		watchdog_flag = true;	
+			// Otherwise process any legacy MIDI packets
+			PMIC.CTRL &= ~(PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm);
+			process_legacy_packet();
+			PMIC.CTRL = PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm | PMIC_HILVLEN_bm;
+		}
+		
+		watchdog_flag = true;
 		
 		// Reset the watch dog timer, dawg
 		if (watchdog_flag)

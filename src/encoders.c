@@ -607,59 +607,6 @@ void   process_encoder_input(void)
 
 }
 
-/**
- * Shift mode is an alternate operation mode which is accessed by the side buttons
- * In shift mode the encoders do not do anything, only the switches have effect.
- * All 11 position LEDs are turned on and the RGB set to white if active.  
- * 
- * \param page [in]	0, 1 Which shift page is being accessed
- */
-void run_shift_mode(uint8_t page){
-	
-	static uint8_t idx = 0x00;
-	
-	// First we check the encoder switch states and send any MIDI
-	update_encoder_switch_state();
-	uint16_t bit = 0x01;
-	
-	//uint16_t sw_down = get_enc_switch_down();
-	
-	for(uint8_t i=0;i<16;++i){
-		if (bit & get_enc_switch_down()) {
-			// Switch was just pressed
-			midi_stream_raw_note(global_midi_system_channel, SHIFT_OFFSET + (i+(page*16)) , true, 127);
-			// Set state if override is not active
-			if(!(shift_mode_midi_override[page] & bit)){
-				shift_mode_switch_state[page] |= bit;
-			}
-			
-		} else if (bit & get_enc_switch_up()) {
-			// Switch was just released
-			//send_element_midi(SHIFT, i+(page*16), 0, false);
-			midi_stream_raw_note(global_midi_system_channel, SHIFT_OFFSET + (i+(page*16)), false, 0);
-			// Clear state if override is not active
-			if(!(shift_mode_midi_override[page] & bit)){
-				shift_mode_switch_state[page] &= ~bit;
-			}
-		}
-		bit <<=1;
-	}
-		
-	// The we update the display.
-	if (shift_mode_switch_state[page] & (0x01<<idx)){
-		// Set the LEDs on
-		set_encoder_rgb(idx, 0);
-		set_encoder_indicator(idx,127, false, ENC_DISPLAY_MODE_BAR, 0);
-	} else {
-		set_encoder_rgb(idx, 0);
-		set_encoder_indicator(idx,0, false, ENC_DISPLAY_MODE_BAR, 0);
-	}
-	
-	// Increment the encoder index for next time
-	idx += 1;
-	if(idx > 15){idx = 0;}
-}
-
 
 void send_encoder_midi(uint8_t banked_encoder_idx, uint16_t value, bool state)
 {
@@ -859,12 +806,6 @@ void process_sw_rgb_update(uint8_t idx, uint8_t value)
 		switch_color_overide[bank] |= (0x01<<encoder);
 		switch_color_buffer[bank][encoder] = encoder_settings[idx].active_color;
 		
-		//// Read from EEPROM
-		//// Enable the override and set the color to active
-		//switch_color_overide[bank] |= (0x01<<encoder);
-		//encoder_config_t temp_config;
-		//get_encoder_config(bank, encoder, &temp_config);  // !revision: no need to read from EEPROM anymore with expanded encoder_settings, change this to a local read
-		//switch_color_buffer[bank][encoder] = temp_config.active_color;
 	}
 }
 
@@ -873,25 +814,9 @@ void process_sw_toggle_update(uint8_t idx, uint8_t value)
 {
 	uint8_t bank = idx / 16;
 	uint8_t encoder = idx % 16;
-	//uint8_t action_type = encoder_settings[i].switch_action_type;
-	//enc_switch_toggle_state  // toggle_state is "used to track" midi_state
-	enc_switch_midi_state[bank][encoder] = value ? 127:0;	// midi_state appears to be the proper variable for modification here
-	/*if (action_type == ENC_SHIFT_TOGGLE){ 
-		// SHIFT_TOGGLE encoders also use enc_switch_toggle_state, updated it
-		uint16 bit = 0x01 << encoder;
-		if (value){
-			enc_switch_toggle_state[bank] |= bit;
-		}
-		else {
-			enc_switch_toggle_state[bank] &= bit;
-		}
-		// Now change the active encoder based on this change
 
-	}
-	else if (action_type == ENC_SHIFT_HOLD){
-		// Change active encodcer
-		
-	}*/
+	enc_switch_midi_state[bank][encoder] = value ? 127:0;
+
 }
 
 // Midi Feedback - Switch Stored Toggle State for Shift Encoder Toggle Switches (also updates Encoder Value Indicator LEDS
@@ -941,6 +866,7 @@ static uint8_t prevIndicatorValue[16];
 static uint8_t prevSwitchColorValue[16];
 static uint8_t prevEncoderAnimationValue[16];
 static uint8_t prevSwAnimationValue[16];
+static uint8_t prevEncoderPhenotype[16];
 
 // - Switch Animations 1-48, 127
 bool animation_is_switch_rgb(uint8_t animation_value) { // !Summer2016Update: Dual Animations - Identify to Eliminate Conflicts
@@ -998,75 +924,127 @@ void update_encoder_display(void)
 	set_encoder_rgb(idx, switch_color_buffer[encoder_bank][idx]);
 #endif 
 	
-	// First the indicator display
-	uint8_t currentValue = indicator_value_buffer[encoder_bank][idx];
-	uint8_t banked_encoder_idx = idx + encoder_bank*PHYSICAL_ENCODERS;				
-	if (currentValue != prevIndicatorValue[idx]) {
-		set_encoder_indicator(idx, currentValue, encoder_settings[banked_encoder_idx].has_detent,
-								encoder_settings[banked_encoder_idx].indicator_display_type,
-								encoder_settings[banked_encoder_idx].detent_color);
-		prevIndicatorValue[idx] = currentValue;
-	}
+	//// First the indicator display
+	//uint8_t currentValue = indicator_value_buffer[encoder_bank][idx];
+	//uint8_t banked_encoder_idx = idx + encoder_bank*PHYSICAL_ENCODERS;				
+	//if (currentValue != prevIndicatorValue[idx]) {
+		//set_encoder_indicator(idx, currentValue, encoder_settings[banked_encoder_idx].has_detent,
+								//encoder_settings[banked_encoder_idx].indicator_display_type,
+								//encoder_settings[banked_encoder_idx].detent_color);
+		//prevIndicatorValue[idx] = currentValue;
+	//}
+	//
+	//// Next the RGB display
+	//currentValue = switch_color_buffer[encoder_bank][idx];
+	//if (currentValue != prevSwitchColorValue[idx]) {
+		//set_encoder_rgb(idx, currentValue);
+		//prevSwitchColorValue[idx] = currentValue;
+	//}
+	//
+	//// Finally if animation is active for this encoder run the animation
+	//// If it has just changed from active to inactive reset the RGB to its
+	//// pre-animation state
+	//
+	//// !Summer2016Update: Dual Animations 
+	//// - created encoder_animation_buffer, which double-uses run_encoder_animation
+//
+	//// Encoder Animation Buffer takes priority over Switch Animation Buffer if there are Conflicts
+	//// - however either animation buffer can run either type of animation in reality
+	//currentValue = encoder_animation_buffer[encoder_bank][idx];
+	//if (currentValue){
+		//run_encoder_animation(idx, encoder_bank, currentValue, switch_color_buffer[encoder_bank][idx]);
+		//prevEncoderAnimationValue[idx] = currentValue;
+	//} else if (prevEncoderAnimationValue[idx]) {
+		//// !Summer2016Update: Reset the Indicator Display/ RGB Display as necessary
+		//if (animation_is_switch_rgb(prevEncoderAnimationValue[idx])) {
+			//set_encoder_rgb(idx, switch_color_buffer[encoder_bank][idx]);
+		//}
+		//else if (animation_is_encoder_indicator(prevEncoderAnimationValue[idx])) {
+			//set_encoder_indicator(idx, indicator_value_buffer[encoder_bank][idx], encoder_settings[banked_encoder_idx].has_detent,  
+					//encoder_settings[banked_encoder_idx].indicator_display_type,
+					//encoder_settings[banked_encoder_idx].detent_color);
+		//}
+		//// !revision: could add error handling for invalid values (values that do not directly point to animations)
+		//prevEncoderAnimationValue[idx] = 0;
+	//}
+//
+	//// Run Switch Animation, or set the indicator to the last set color.
+	//if (!animation_buffer_conflict_exists(encoder_bank, idx)) {  // !start here: test me! Animation buffer conflicts
+		//// Run The Encoder Value Display Animation
+		//currentValue = switch_animation_buffer[encoder_bank][idx];
+		//if (currentValue) { // !review: could make this more robust by limiting currentValue to only Encoder related animatinos 
+			//run_encoder_animation(idx, encoder_bank, currentValue, switch_color_buffer[encoder_bank][idx]);
+			//prevSwAnimationValue[idx] = currentValue;
+		//}  
+		//else if (prevSwAnimationValue[idx]) {  // Animation Just Ended
+			//// !Summer2016Update: Reset the Indicator Display/ RGB Display as necessary
+			//if (animation_is_switch_rgb(prevSwAnimationValue[idx])) {
+				//set_encoder_rgb(idx, switch_color_buffer[encoder_bank][idx]);
+			//}
+			//else if (animation_is_encoder_indicator(prevSwAnimationValue[idx])) {
+				//set_encoder_indicator(idx, indicator_value_buffer[encoder_bank][idx], encoder_settings[banked_encoder_idx].has_detent,
+				//encoder_settings[banked_encoder_idx].indicator_display_type,
+				//encoder_settings[banked_encoder_idx].detent_color);
+			//}
+			//prevSwAnimationValue[idx] = 0;			
+		//}
+	//}
 	
-	// Next the RGB display
-	currentValue = switch_color_buffer[encoder_bank][idx];
-	if (currentValue != prevSwitchColorValue[idx]) {
-		set_encoder_rgb(idx, currentValue);
-		prevSwitchColorValue[idx] = currentValue;
-	}
-	
-	// Finally if animation is active for this encoder run the animation
-	// If it has just changed from active to inactive reset the RGB to its
-	// pre-animation state
-	
-	// !Summer2016Update: Dual Animations 
-	// - created encoder_animation_buffer, which double-uses run_encoder_animation
+	uint8_t currentIndicatorValue = indicator_value_buffer[encoder_bank][idx];
+	uint8_t currentRGBValue       = switch_color_buffer[encoder_bank][idx];
 
-	// Encoder Animation Buffer takes priority over Switch Animation Buffer if there are Conflicts
-	// - however either animation buffer can run either type of animation in reality
-	currentValue = encoder_animation_buffer[encoder_bank][idx];
-	if (currentValue){
-		run_encoder_animation(idx, encoder_bank, currentValue, switch_color_buffer[encoder_bank][idx]);
-		prevEncoderAnimationValue[idx] = currentValue;
-	} else if (prevEncoderAnimationValue[idx]) {
-		// !Summer2016Update: Reset the Indicator Display/ RGB Display as necessary
-		if (animation_is_switch_rgb(prevEncoderAnimationValue[idx])) {
-			set_encoder_rgb(idx, switch_color_buffer[encoder_bank][idx]);
+	uint8_t banked_encoder_idx    = idx + (encoder_bank * PHYSICAL_ENCODERS);
+	uint8_t currentPhenotype      = encoder_settings[banked_encoder_idx].phenotype;
+
+
+	if (currentPhenotype == ENC_CONTROL_TYPE_DISABLED){
+		
+		if (currentPhenotype != prevEncoderPhenotype[idx])	 {
+
+			// draw disabled encoder
+
+			build_rgb(idx, 0, 0);
+			set_encoder_indicator(idx, 0, false, ENC_DISPLAY_MODE_BLENDED_BAR,	0);
+			prevSwitchColorValue[idx] = -1;
+			prevIndicatorValue[idx]   = -1;
+			prevEncoderPhenotype[idx] = currentPhenotype;			
 		}
-		else if (animation_is_encoder_indicator(prevEncoderAnimationValue[idx])) {
-			set_encoder_indicator(idx, indicator_value_buffer[encoder_bank][idx], encoder_settings[banked_encoder_idx].has_detent,  
-					encoder_settings[banked_encoder_idx].indicator_display_type,
-					encoder_settings[banked_encoder_idx].detent_color);
+
+	} else if (currentPhenotype == ENC_CONTROL_TYPE_ROTARY){
+	   
+	   	// Draw rotary encoder
+
+		if (currentPhenotype != prevEncoderPhenotype[idx])	 {
+			build_rgb(idx, 0, 0);
+			prevSwitchColorValue[idx] = -1;
+			prevEncoderPhenotype[idx] = currentPhenotype;
 		}
-		// !revision: could add error handling for invalid values (values that do not directly point to animations)
-		prevEncoderAnimationValue[idx] = 0;
+	   	
+	   	if (currentIndicatorValue != prevIndicatorValue[idx]) {
+		   	set_encoder_indicator(idx, currentIndicatorValue, false, ENC_DISPLAY_MODE_BLENDED_BAR,	encoder_settings[banked_encoder_idx].detent_color);
+		   	prevIndicatorValue[idx] = currentIndicatorValue;
+	   	}
+
+	} else if (currentPhenotype == ENC_CONTROL_TYPE_SWITCH){
+
+		// draw switch encoder
+
+		if (currentPhenotype != prevEncoderPhenotype[idx])	 {
+			set_encoder_indicator(idx, 0, false, ENC_DISPLAY_MODE_BLENDED_BAR,	0);
+			prevIndicatorValue[idx]   = -1;
+			prevEncoderPhenotype[idx] = currentPhenotype;
+		}
+		
+		if (currentRGBValue != prevSwitchColorValue[idx]) {
+			set_encoder_rgb(idx, currentRGBValue);
+			prevSwitchColorValue[idx] = currentRGBValue;
+		}
+
 	}
 
-	// Run Switch Animation, or set the indicator to the last set color.
-	if (!animation_buffer_conflict_exists(encoder_bank, idx)) {  // !start here: test me! Animation buffer conflicts
-		// Run The Encoder Value Display Animation
-		currentValue = switch_animation_buffer[encoder_bank][idx];
-		if (currentValue) { // !review: could make this more robust by limiting currentValue to only Encoder related animatinos 
-			run_encoder_animation(idx, encoder_bank, currentValue, switch_color_buffer[encoder_bank][idx]);
-			prevSwAnimationValue[idx] = currentValue;
-		}  
-		else if (prevSwAnimationValue[idx]) {  // Animation Just Ended
-			// !Summer2016Update: Reset the Indicator Display/ RGB Display as necessary
-			if (animation_is_switch_rgb(prevSwAnimationValue[idx])) {
-				set_encoder_rgb(idx, switch_color_buffer[encoder_bank][idx]);
-			}
-			else if (animation_is_encoder_indicator(prevSwAnimationValue[idx])) {
-				set_encoder_indicator(idx, indicator_value_buffer[encoder_bank][idx], encoder_settings[banked_encoder_idx].has_detent,
-				encoder_settings[banked_encoder_idx].indicator_display_type,
-				encoder_settings[banked_encoder_idx].detent_color);
-			}
-			prevSwAnimationValue[idx] = 0;			
-		}
-	}
-	
 	// Increment the encoder index for next time
 	idx += 1;
-	if(idx > 15){idx = 0;}
+	idx %= PHYSICAL_ENCODERS;
 }
 
 /**
