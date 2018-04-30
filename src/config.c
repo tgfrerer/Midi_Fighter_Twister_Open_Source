@@ -286,7 +286,7 @@ static void sysExCmdBulkXfer(uint8_t length, uint8_t* buffer) // Process/ParseSy
 								      20, enc_cfg.inactive_color,
 									  21, enc_cfg.detent_color,	
 									  22, enc_cfg.indicator_display_type,
-									  23, enc_cfg.is_super_knob,
+									  23, enc_cfg.phenotype,
 									  24, enc_cfg.encoder_shift_midi_channel, // !Summer2016Update
 									};
 				

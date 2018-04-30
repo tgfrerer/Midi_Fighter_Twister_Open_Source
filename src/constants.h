@@ -65,8 +65,9 @@
 //#define SWITCH_CHANNEL	1 // Defined elsewhere
 #define ENCODER_ANIMATION_CHANNEL 2
 //#define DEF_MIDI_CHANNEL		3 // TWISTER DEFAULT SETTINGS Channel for changing banks
-//#define ENCODER_SHIFTED_CHANNEL 4 // Defined elsewhere
+#define ENCODER_CONTROL_CHANNEL   4
 #define SWITCH_ANIMATION_CHANNEL  5
+
 
 // Debug & Test Harness Definitions ---------------------------------------
 
@@ -167,6 +168,6 @@
 
 #define DEF_DETENT_COLOR        63
 #define DEF_INDICATOR_TYPE      BLENDED_BAR
-#define DEF_IS_SUPER_KNOB       true
+#define DEF_PHENOTYPE           ENCODER
 
 #endif /* CONSTANTS_H_ */

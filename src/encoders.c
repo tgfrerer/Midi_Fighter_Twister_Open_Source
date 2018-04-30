@@ -275,7 +275,7 @@ void get_encoder_config(uint8_t bank, uint8_t encoder, encoder_config_t *cfg_ptr
 	cfg_ptr->encoder_midi_type		= buffer[6] & 0x03;
 	cfg_ptr->encoder_midi_channel   = (buffer[6] >> 4) & 0x0F;
 	cfg_ptr->encoder_midi_number	= buffer[7] & 0x7F;
-	cfg_ptr->is_super_knob          = (buffer[7] >> 7) & 0x01;
+	cfg_ptr->phenotype          = (buffer[7] >> 7) & 0x01;
 }
 
 // !review: this may not be correct
@@ -390,9 +390,9 @@ void save_encoder_config(uint8_t bank, uint8_t encoder, encoder_config_t *cfg_pt
 		*buffer_ptr &= ~0x7F;
 		*buffer_ptr |= cfg_ptr->encoder_midi_number;
 	}
-	if (cfg_ptr->is_super_knob < 0x80){
+	if (cfg_ptr->phenotype < 0x80){
 		*buffer_ptr &= ~0x80;
-		*buffer_ptr |= (0x80 & (cfg_ptr->is_super_knob << 7));
+		*buffer_ptr |= (0x80 & (cfg_ptr->phenotype << 7));
 	}
 	buffer_ptr++;  // Full
 	
@@ -427,7 +427,7 @@ void factory_reset_encoder_config(void)
 	enc_default.switch_midi_channel        = DEF_SW_CH;
 	enc_default.encoder_midi_channel       = DEF_ENC_CH;
 	enc_default.encoder_midi_type          = DEF_ENC_MIDI_TYPE;
-	enc_default.is_super_knob              = DEF_IS_SUPER_KNOB;
+	enc_default.phenotype                  = DEF_PHENOTYPE;
 	enc_default.encoder_midi_number        = 0;
 	enc_default.switch_midi_number         = 0;
 	enc_default.encoder_shift_midi_channel = DEF_ENC_SHIFT_CH; // !Summer2016Update: Shifted Encoders MIDI Channel
@@ -488,7 +488,7 @@ void factory_reset_encoder_config(void)
 		
 		// Encoder MIDI number is saved in the 8th byte
 		data_byte = (0x7f & (enc_default.encoder_midi_number+i));
-		data_byte |= (0x80 & (enc_default.is_super_knob << 7));
+		data_byte |= (0x80 & (enc_default.phenotype << 7));
 		*buffer_ptr++ = data_byte;
 		
 	}
@@ -556,22 +556,19 @@ void   process_encoder_input(void)
 		virtual_encoder_id = get_virtual_encoder_id(encoder_bank, i);
 		banked_encoder_id = virtual_encoder_id & BANKED_ENCODER_MASK;
 		
-		if (new_value) {
+		if (encoder_settings[banked_encoder_id].phenotype == ENCODER && new_value) {
 			
 			int16_t scaled_value;
 			
-			if (encoder_settings[banked_encoder_id].switch_action_type == ENC_FINE_ADJUST && get_enc_switch_state() & bit) {
+			if ( get_enc_switch_state() & bit) {
 				// Fine adjust sensitivity, 1 pulse = 1/4 a CC step
 				scaled_value = new_value << 0; // (tig) smallest possible step
 				
-			} else if(encoder_settings[banked_encoder_id].movement == DIRECT) {
+			} else  {
 				// Standard sensitivity, 1 pulse = 1 CC step
 				scaled_value = new_value << 7; // (tig) smallest step which shows on the high 7 bits (effectively shifting 7 bits to the left)
 				
-			} else  {
-				// Emulated sensitivity, 270 degress rotation = 127 CC steps
-				scaled_value = new_value << 4; // double the standard speed
-			}
+			} 
 			
 			raw_encoder_value[virtual_encoder_id] = clamp_encoder_raw_value(raw_encoder_value[virtual_encoder_id] + scaled_value);
 			
@@ -580,34 +577,31 @@ void   process_encoder_input(void)
 			uint8_t scaled_encoder_value_7bit = scale_encoder_value(raw_encoder_value[virtual_encoder_id]);
 			indicator_value_buffer[encoder_bank][i]=scaled_encoder_value_7bit;
 			
+		} 
+		
+		if (encoder_settings[banked_encoder_id].phenotype == SWITCH){
+		   if (bit & get_enc_switch_down() || bit & get_enc_switch_up())
+		   {
+			   // If the switch state has changed do its action
+					   if(bit & get_enc_switch_down()) {
+						   // Toggle the MIDI state
+						   enc_switch_midi_state[encoder_bank][i] = enc_switch_midi_state[encoder_bank][i]
+						   ? 0
+						   : 127;
+						   // Update the display
+						   if (!color_overide_active(encoder_bank,i)) {
+							   
+							   switch_color_buffer[encoder_bank][i] = enc_switch_midi_state[encoder_bank][i]
+							   ? encoder_settings[banked_encoder_id].active_color
+							   : encoder_settings[banked_encoder_id].inactive_color;
+
+						   }
+						   // And send any MIDI
+						   send_switch_midi( banked_encoder_id, enc_switch_midi_state[encoder_bank][i], enc_switch_midi_state[encoder_bank][i]);
+					   }
+		   }
 		}
 		
-		if (bit & get_enc_switch_down() || bit & get_enc_switch_up())
-		{
-			// If the switch state has changed do its action
-			switch (encoder_settings[banked_encoder_id].switch_action_type)
-			{
-				case CC_TOGGLE:{
-					if(bit & get_enc_switch_down()) {
-						// Toggle the MIDI state
-						enc_switch_midi_state[encoder_bank][i] = enc_switch_midi_state[encoder_bank][i] 
-						? 0 
-						: 127;
-						// Update the display
-						if (!color_overide_active(encoder_bank,i)) {
-							
-							switch_color_buffer[encoder_bank][i] = enc_switch_midi_state[encoder_bank][i] 
-							? encoder_settings[banked_encoder_id].active_color 
-							: encoder_settings[banked_encoder_id].inactive_color;
-
-						}
-						// And send any MIDI
-						send_switch_midi( banked_encoder_id, enc_switch_midi_state[encoder_bank][i], enc_switch_midi_state[encoder_bank][i]);
-					}
-				}
-				break;
-			}
-		}
 		bit <<=1;
 	}
 
@@ -674,22 +668,19 @@ void send_encoder_midi(uint8_t banked_encoder_idx, uint16_t value, bool state)
 	if (encoder_settings[banked_encoder_idx].encoder_midi_type == SEND_CC)
 	{
 		
-		if (encoder_settings[banked_encoder_idx].is_super_knob) {
-
-			// tig: we're using the super-knob flag to signal that this controller wants to use the
-			// High Resolution Velocity prefix (see: https://www.midi.org/downloads?task=callelement&format=raw&item_id=113&element=f85c494b-2b32-4109-b8c1-083cca2b7db6&method=download)
-			//
-			// The protocol specifies that a CC message with id 0x58 - where the payload data
-			// septet will be prefixed to the following note:
-			// `Bn 58 vv
-			//		vv = lower 7 bits affixed to the subsequent Note On / Note Off velocity`
+		// tig: we're using the super-knob flag to signal that this controller wants to use the
+		// High Resolution Velocity prefix (see: https://www.midi.org/downloads?task=callelement&format=raw&item_id=113&element=f85c494b-2b32-4109-b8c1-083cca2b7db6&method=download)
+		//
+		// The protocol specifies that a CC message with id 0x58 - where the payload data
+		// septet will be prefixed to the following note:
+		// `Bn 58 vv
+		//		vv = lower 7 bits affixed to the subsequent Note On / Note Off velocity`
 							
-			midi_stream_raw_cc(encoder_settings[banked_encoder_idx].encoder_midi_channel,
-			MIDI_CC_HIGH_RESOLUTION_VELOCITY_PREFIX, // high resolution velocity prefix
-			value & 0x7F); // low 7 bits for higher resolution
+		midi_stream_raw_cc(encoder_settings[banked_encoder_idx].encoder_midi_channel,
+		MIDI_CC_HIGH_RESOLUTION_VELOCITY_PREFIX, // high resolution velocity prefix
+		value & 0x7F); // low 7 bits for higher resolution
 							
-			MIDI_Device_Flush(g_midi_interface_info);
-		}
+		MIDI_Device_Flush(g_midi_interface_info);
 
 		// tig: we always broadcast the actual value of the encoder, this
 		// is how we ensure backwards compatibility: these are the higher 7 bits,
@@ -773,56 +764,47 @@ void process_element_midi(uint8_t channel, uint8_t type, uint8_t number, uint8_t
 
 	//---------| invariant: channel is not midi_system_channel
 
-	// Otherwise the input is re mappable so scan through the input map for a match
-	for(uint8_t i=0;i<64;++i){
-		// Search the input map for a match
-		if(encoder_settings[i].encoder_midi_number == number){
-			uint8_t output_type = encoder_settings[i].encoder_midi_type;
-			// Check Encoder Mapping for a Match
-			if(encoder_settings[i].encoder_midi_channel == channel){
-				// Matched to an encoder indicator
-				// - !Summer2016Update: MIDI Type Filtering for MIDI Feedback
-				if(type == SEND_CC){
-					if (output_type == SEND_CC || output_type == SEND_REL_ENC) // Ensure MIDI Type Matches
-					{
-						process_indicator_update(i, value); // !Summer2016Update: 0 = non-shifted encoder
-					}
-				}
-				else { // Other Valid types that reach here are SEND_NOTE and SEND_NOTE_OFF, encoders treat them the same
-					if (output_type == SEND_NOTE)
-					{
-						process_indicator_update(i, value); // !Summer2016Update: 0 = non-shifted encoder
-					}
-				}
-				// !Summer2016Update: To allow for duplicate mappings across banks, we must continue to check for duplicate mappings
-				// - Same goes for all other statements.
+	// we assume controls are not remapped, which means we 
+
+
+	switch (channel)
+	{
+		case ENCODER_ROTARY_CHANNEL : {
+			if( type == SEND_CC && encoder_settings[number].phenotype == ENCODER){
+				process_indicator_update(number, value);
 			}
 		}
-		// Check Switch Mapping for a Match
-		if (encoder_settings[i].switch_midi_number == number){
-			if(encoder_settings[i].switch_midi_channel == channel){
-				// Matched to an encoder switch
-				uint8_t action_type = encoder_settings[i].switch_action_type;
-				// Check for Message type Match
-				// - !Summer2016Update: MIDI Type Filtering for MIDI Feedback
-				{
-					// All other Switch Output Types will output a CC Message, and should expect to receive one in return.
-					if (type == SEND_CC){
-						process_sw_rgb_update(i, value);
-						process_sw_toggle_update(i, value);
-					}
-				}
-				} else if (channel == ENCODER_ANIMATION_CHANNEL) {
-				// Note: Animations are executed, so long as the number matches the switch
-				// - This allows backward compatibility with a very lenient earlier protocol for twister (2014 builds)
-				// Matched to encoder switch animation
-				process_encoder_animation_update(i, value);
-				} else if (channel == SWITCH_ANIMATION_CHANNEL) {  // 2016: Dual software animation channels update
-				// Matched to encoder switch animation
-				process_sw_animation_update(i, value);
+		break;
+		
+		case ENCODER_SWITCH_CHANNEL: {
+			if (type == SEND_CC && encoder_settings[number].phenotype == SWITCH){
+				process_sw_rgb_update(number, value);
+				process_sw_toggle_update(number, value);
 			}
 		}
+		break;
+		
+		case ENCODER_CONTROL_CHANNEL: {
+			if (type == SEND_CC) {
+				encoder_settings[number].phenotype = value % MAX_ENC_CONTROL_TYPE;
+			}
+		}
+		break;
+
+		case ENCODER_ANIMATION_CHANNEL: {
+		   process_encoder_animation_update(number, value);
+		}
+		break;
+
+		case SWITCH_ANIMATION_CHANNEL: {
+			process_encoder_animation_update(number, value);
+		}
+		break;
+
+		default:
+		break;
 	}
+	
 	
 }
 

@@ -43,7 +43,8 @@
 		typedef enum enc_control_type {
 			ENCODER,
 			SWITCH,
-			SHIFT,
+			CT_DISABLED,
+			MAX_ENC_CONTROL_TYPE,
 		} enc_control_type_t ; 
 
 		// Encoder Switch Type Enum
@@ -81,6 +82,7 @@
 			BLENDED_DOT,
 		} display_type_t;
 
+
 		// Tag-Value table which holds the configuration for 1 encoder
 		//#define ENC_CFG_SIZE 14
 		#define ENC_CFG_SIZE 15 // !Summer2016Update: added encoder_shift_midi_channel
@@ -100,7 +102,7 @@
 				uint8_t			inactive_color;
 				uint8_t			detent_color;
 				uint8_t		    indicator_display_type;
-				uint8_t			is_super_knob;		
+				uint8_t			phenotype;		
 				uint8_t			encoder_shift_midi_channel; // !Summer2016Update
 			};
 			uint8_t bytes[ENC_CFG_SIZE];
