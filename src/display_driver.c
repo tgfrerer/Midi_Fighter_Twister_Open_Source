@@ -367,10 +367,10 @@ int build_indicator_pattern(indicator_bit_mask_t *result,
 	bool        is_bar_display     = false;
 	float       remainder = 0;
 	
-	if (type == BLENDED_BAR){// || type == BLENDED_DOT_DISPLAY) {
+	if (type == ENC_DISPLAY_MODE_BLENDED_BAR){// || type == BLENDED_DOT_DISPLAY) {
 		is_blended = true;
 	}
-	if (type ==  BAR || type == BLENDED_BAR) {
+	if (type ==  ENC_DISPLAY_MODE_BAR || type == ENC_DISPLAY_MODE_BLENDED_BAR) {
 		is_bar_display = true;
 	}
 	
@@ -467,7 +467,7 @@ int build_indicator_pattern(indicator_bit_mask_t *result,
 		result->pattern_A_brightness = 0;
 	}
 	
-	if (type != BLENDED_DOT) {
+	if (type != ENC_DISPLAY_MODE_BLENDED_DOT) {
 		result->pattern_B_brightness = 127;	
 	}
 

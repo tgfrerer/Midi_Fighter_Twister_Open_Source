@@ -199,7 +199,7 @@ bool elec_self_test(void)
 		}
 		
 		clear_display_buffer();
-		set_encoder_indicator(enc, 127, false, BAR, false);
+		set_encoder_indicator(enc, 127, false, ENC_DISPLAY_MODE_BAR, false);
 		wait_for_input(enc);
 		pass_indicator(enc);
 		
@@ -222,7 +222,7 @@ bool elec_self_test(void)
 			if(display_value > 127){
 				display_value = 127;
 			}
-			set_encoder_indicator(i, (uint8_t)display_value, false, DOT, false);
+			set_encoder_indicator(i, (uint8_t)display_value, false, ENC_DISPLAY_MODE_DOT, false);
 			_delay_ms(1);
 			count++;
 			if(count > 12000){// actually time around 5 seconds, indicator set is slow..
@@ -247,7 +247,7 @@ bool elec_self_test(void)
 		}
 		
 		clear_display_buffer();
-		set_encoder_indicator(enc, 63, true, BAR, 63);
+		set_encoder_indicator(enc, 63, true, ENC_DISPLAY_MODE_BAR, 63);
 		wait_for_input(enc);
 		pass_indicator(enc);
 		
@@ -264,8 +264,8 @@ bool elec_self_test(void)
 		uint8_t element1 = side_pattern[i][0];
 		uint8_t element2 = side_pattern[i][1];
 		clear_display_buffer();
-		set_encoder_indicator(element1, 127, false, BAR, false);
-		set_encoder_indicator(element2, 127, false, BAR, false);
+		set_encoder_indicator(element1, 127, false, ENC_DISPLAY_MODE_BAR, false);
+		set_encoder_indicator(element2, 127, false, ENC_DISPLAY_MODE_BAR, false);
 		wait_for_input(i+16);
 		pass_indicator(i+16);
 	}
@@ -299,7 +299,7 @@ bool elec_self_test(void)
 	}
 	*/
 	for(uint8_t i=0;i<16;++i){
-		set_encoder_indicator(i, 127, false, BAR, false);
+		set_encoder_indicator(i, 127, false, ENC_DISPLAY_MODE_BAR, false);
 		set_encoder_rgb(i, 127);
 	}
 	
@@ -342,8 +342,8 @@ bool assembly_self_test(void)
 		uint8_t element1 = side_pattern[i][0];
 		uint8_t element2 = side_pattern[i][1];
 		clear_display_buffer();
-		set_encoder_indicator(element1, 127, false, BAR, false);
-		set_encoder_indicator(element2, 127, false, BAR, false);
+		set_encoder_indicator(element1, 127, false, ENC_DISPLAY_MODE_BAR, false);
+		set_encoder_indicator(element2, 127, false, ENC_DISPLAY_MODE_BAR, false);
 		wait_for_input(i+16);
 		pass_indicator(i+16);
 	}
@@ -378,7 +378,7 @@ void fail_indicator(uint8_t element)
 	{
 		// If the fault is for an encoder element we set its red LEDs on
 		build_rgb(element, 0xFF0000, false);
-		set_encoder_indicator(element, 63, true, BAR, 0);
+		set_encoder_indicator(element, 63, true, ENC_DISPLAY_MODE_BAR, 0);
 	} else {
 		// If the fault is for a side switch element we set the red LEDs
 		// of the closest two encoders on.
@@ -387,9 +387,9 @@ void fail_indicator(uint8_t element)
 		uint8_t element2 = side_pattern[element-16][1];
 		
 		build_rgb(element1, 0xFF0000, false);
-		set_encoder_indicator(element1, 63, true, BAR, 0);
+		set_encoder_indicator(element1, 63, true, ENC_DISPLAY_MODE_BAR, 0);
 		build_rgb(element2, 0xFF0000, false);
-		set_encoder_indicator(element2, 63, true, BAR, 0);
+		set_encoder_indicator(element2, 63, true, ENC_DISPLAY_MODE_BAR, 0);
 	}
 	
 	while(true){

@@ -41,10 +41,10 @@
 	/*	Types: */
 	
 		typedef enum enc_control_type {
-			ENCODER,
-			SWITCH,
-			CT_DISABLED,
-			MAX_ENC_CONTROL_TYPE,
+			ENC_CONTROL_TYPE_ROTARY,
+			ENC_CONTROL_TYPE_SWITCH,
+			ENC_CONTROL_TYPE_DISABLED,
+			ENC_CONTROL_TYPE__MAX,
 		} enc_control_type_t ; 
 
 		// Encoder Switch Type Enum
@@ -76,11 +76,11 @@
 		
 		// Encoder Indicator Display Type Enum
 		typedef enum {
-			DOT,
-			BAR,
-			BLENDED_BAR,
-			BLENDED_DOT,
-		} display_type_t;
+			ENC_DISPLAY_MODE_DOT,
+			ENC_DISPLAY_MODE_BAR,
+			ENC_DISPLAY_MODE_BLENDED_BAR,
+			ENC_DISPLAY_MODE_BLENDED_DOT,
+		} enc_display_mode_t;
 
 
 		// Tag-Value table which holds the configuration for 1 encoder

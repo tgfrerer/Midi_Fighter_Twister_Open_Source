@@ -556,7 +556,7 @@ void   process_encoder_input(void)
 		virtual_encoder_id = get_virtual_encoder_id(encoder_bank, i);
 		banked_encoder_id = virtual_encoder_id & BANKED_ENCODER_MASK;
 		
-		if (encoder_settings[banked_encoder_id].phenotype == ENCODER && new_value) {
+		if (encoder_settings[banked_encoder_id].phenotype == ENC_CONTROL_TYPE_ROTARY && new_value) {
 			
 			int16_t scaled_value;
 			
@@ -579,7 +579,7 @@ void   process_encoder_input(void)
 			
 		} 
 		
-		if (encoder_settings[banked_encoder_id].phenotype == SWITCH){
+		if (encoder_settings[banked_encoder_id].phenotype == ENC_CONTROL_TYPE_SWITCH){
 		   if (bit & get_enc_switch_down() || bit & get_enc_switch_up())
 		   {
 			   // If the switch state has changed do its action
@@ -649,10 +649,10 @@ void run_shift_mode(uint8_t page){
 	if (shift_mode_switch_state[page] & (0x01<<idx)){
 		// Set the LEDs on
 		set_encoder_rgb(idx, 0);
-		set_encoder_indicator(idx,127, false, BAR, 0);
+		set_encoder_indicator(idx,127, false, ENC_DISPLAY_MODE_BAR, 0);
 	} else {
 		set_encoder_rgb(idx, 0);
-		set_encoder_indicator(idx,0, false, BAR, 0);
+		set_encoder_indicator(idx,0, false, ENC_DISPLAY_MODE_BAR, 0);
 	}
 	
 	// Increment the encoder index for next time
@@ -770,14 +770,14 @@ void process_element_midi(uint8_t channel, uint8_t type, uint8_t number, uint8_t
 	switch (channel)
 	{
 		case ENCODER_ROTARY_CHANNEL : {
-			if( type == SEND_CC && encoder_settings[number].phenotype == ENCODER){
+			if( type == SEND_CC && encoder_settings[number].phenotype == ENC_CONTROL_TYPE_ROTARY){
 				process_indicator_update(number, value);
 			}
 		}
 		break;
 		
 		case ENCODER_SWITCH_CHANNEL: {
-			if (type == SEND_CC && encoder_settings[number].phenotype == SWITCH){
+			if (type == SEND_CC && encoder_settings[number].phenotype == ENC_CONTROL_TYPE_SWITCH){
 				process_sw_rgb_update(number, value);
 				process_sw_toggle_update(number, value);
 			}
@@ -786,7 +786,7 @@ void process_element_midi(uint8_t channel, uint8_t type, uint8_t number, uint8_t
 		
 		case ENCODER_CONTROL_CHANNEL: {
 			if (type == SEND_CC) {
-				encoder_settings[number].phenotype = value % MAX_ENC_CONTROL_TYPE;
+				encoder_settings[number].phenotype = value % ENC_CONTROL_TYPE__MAX;
 			}
 		}
 		break;
