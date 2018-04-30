@@ -183,7 +183,6 @@ void encoders_init(void)
 		uint8_t this_bank = i/16;
 		uint8_t this_phys_encoder = i%16;
 		get_encoder_config(this_bank, this_phys_encoder, &encoder_settings[i]);
-		//get_encoder_config(encoder_bank, i, &encoder_settings[i]);
 	}
 	
 	// Build all encoder color state buffer banks
@@ -193,13 +192,8 @@ void encoders_init(void)
 	
 	uint16_t addr = (ENC_SETTINGS_START_PAGE * 32) + EE_INACTIVE_COLOR_OFFSET;
 
-	for (uint8_t i = 0; i<NUM_BANKS;++i){
-		for(uint8_t j=0;j<16;++j){
-			switch_color_buffer[i][j] = eeprom_read(addr);
-			addr+= ENC_EE_SIZE;
-		}
-	}
-	
+	memset(switch_color_buffer, DEF_INACTIVE_COLOR, sizeof(switch_color_buffer));
+
 	// Initialize raw encoder values for Bank 1
 	
 	// Initialize Per-Bank related variables
@@ -251,172 +245,9 @@ void encoders_init(void)
 
 void get_encoder_config(uint8_t bank, uint8_t encoder, encoder_config_t *cfg_ptr)
 {
-	uint16_t addr = (ENC_SETTINGS_START_PAGE * 32) + (bank * 128) + (encoder * 8);
-	
-	uint8_t buffer[8];
-	
-	// We need to disable interrupts while interacting with the EEPROM drivers
-	cpu_irq_disable();
-	nvm_eeprom_read_buffer(addr, buffer, 8);
-	cpu_irq_enable();
-	
-	// Expand compressed settings
-	cfg_ptr->switch_action_type		= buffer[0] & 0x0F;
-	cfg_ptr->switch_midi_type		= 0;//(buffer[0] >> 1) & 0x01;
-	cfg_ptr->switch_midi_channel	= (buffer[0] >> 4) & 0x0F;
-	cfg_ptr->switch_midi_number		= buffer[1] & 0x7F;
-	cfg_ptr->active_color			= buffer[2];
-	cfg_ptr->inactive_color			= buffer[3];
-	cfg_ptr->detent_color			= buffer[4] & 0x7F;
-	cfg_ptr->has_detent				= (buffer[4] >> 7) & 0x01;
-	cfg_ptr->indicator_display_type = buffer[5] & 0x03;
-	cfg_ptr->movement				= (buffer[5] >> 2) & 0x03;
-	cfg_ptr->encoder_shift_midi_channel = (buffer[5] >> 4) & 0x0F; // !Summer2016Update: Shifted Encoder MIDI Channel
-	cfg_ptr->encoder_midi_type		= buffer[6] & 0x03;
-	cfg_ptr->encoder_midi_channel   = (buffer[6] >> 4) & 0x0F;
-	cfg_ptr->encoder_midi_number	= buffer[7] & 0x7F;
-	cfg_ptr->phenotype          = (buffer[7] >> 7) & 0x01;
-}
-
-// !review: this may not be correct
-// !revision: less overhead for animations, by removing eeprom reads
-//void get_encoder_config_locally(uint8_t bank, uint8_t encoder, encoder_config_t *cfg_ptr) {
-	//uint8_t virtual_encoder_id = get_virtual_encoder_id(bank, encoder);
-	//uint8_t banked_encoder_id = virtual_encoder_id & BANKED_ENCODER_MASK;
-	//cfg_ptr = &encoder_settings[banked_encoder_id];
-//}
-
-/**
- * Takes a table of new configuration data for a given encoder and saves all 
- * valid settings to EEPROM. Valid settings values are 0 - 127. Settings with
- * value above 127 will be ignored. When passing configuration data to this 
- * function any setting which is not being updated must have its value set to
- * 0x80 or above, otherwise it will be overwritten. See header file for a map
- * of the EEPROM layout of encoder settings
- * 
- * \param bank [in]		The bank of the encoder
- *
- * \param encoder [in]	The index of the encoder
- *
- * \param encoder [in]	The tag table containing the new settings
- * 
- */
-void save_encoder_config(uint8_t bank, uint8_t encoder, encoder_config_t *cfg_ptr)
-{	
-	// Record the new setting to RAM first
-	uint8_t virtual_encoder_id = get_virtual_encoder_id (bank, encoder);
-	encoder_settings[virtual_encoder_id] = *cfg_ptr; // !review: might be '&' instead of *
-	
-	// Create a tempory page_buffer;
-	uint8_t page_buffer[EEPROM_PAGE_SIZE];
-	
-	// Each page contains setting for four encoders, so to avoid overwriting the
-	// data for the other 3 encoders we have to read in their setting first.
-	uint16_t page_address = (ENC_SETTINGS_START_PAGE * 32) + (bank * 128) + ((encoder/4)*32);
-	nvm_eeprom_read_buffer(page_address, page_buffer, EEPROM_PAGE_SIZE);
-	
-	uint8_t* buffer_ptr = page_buffer;
-	buffer_ptr += (8 * (encoder % 4));
-	
-	// Switch Action, Switch MIDI type & Switch MIDI channel are saved
-	// in the first byte
-	if (cfg_ptr->switch_action_type < 0x80){
-		*buffer_ptr &= ~0x0F; 
-		*buffer_ptr |= cfg_ptr->switch_action_type & 0x0F;
-	}
-
-	if (cfg_ptr->switch_midi_channel < 0x80){
-		*buffer_ptr &= ~0xF0;
-		*buffer_ptr |= (0xF0 & ((cfg_ptr->switch_midi_channel - 1) << 4));
-	}
-	buffer_ptr++;  // Full
-	
-	// Switch MIDI number is saved in the second byte
-	if (cfg_ptr->switch_midi_number < 0x80){
-		*buffer_ptr = cfg_ptr->switch_midi_number;
-	}
-	buffer_ptr++;  // 1-bit open
-	
-	// Active and Inactive colors are saved in the third and fourth bytes	
-	if (cfg_ptr->active_color < 0x80){
-		*buffer_ptr = cfg_ptr->active_color;
-	}
-	buffer_ptr++;  // 1-bit open
-		
-	if (cfg_ptr->inactive_color < 0x80){
-		*buffer_ptr = cfg_ptr->inactive_color;
-	}
-	buffer_ptr++;  // 1-bit open
-	
-	// Has de-tent and de-tent color are saved in the 5th byte
-	if (cfg_ptr->has_detent < 0x80){
-		*buffer_ptr &= ~0x80;
-		*buffer_ptr |= (0x80 & (cfg_ptr->has_detent << 7));
-	}	
-	if (cfg_ptr->detent_color < 0x80){
-		*buffer_ptr &= ~0x7F;
-		*buffer_ptr |=  (0x7F & cfg_ptr->detent_color);
-	}
-	buffer_ptr++; // Full
-	
-	// Encoder Indicator & Movement type are save in the 6th byte
-	if (cfg_ptr->indicator_display_type < 0x80){
-		*buffer_ptr &= ~0x03;
-		*buffer_ptr |= (0x03 & cfg_ptr->indicator_display_type);
-	}	
-	if (cfg_ptr->movement < 0x80){
-		*buffer_ptr &= ~0x0C;
-		*buffer_ptr |= (0x0C & (cfg_ptr->movement << 2));
-	}
-	if (cfg_ptr->encoder_shift_midi_channel < 0x80){ // !Summer2016Update shifted encoders midi channel
-		*buffer_ptr &= ~0xF0;
-		*buffer_ptr |= (0xF0 & (cfg_ptr->encoder_shift_midi_channel << 4));
-	}
-	buffer_ptr++; // Full
-	
-	// Encoder MIDI Type & MIDI channel are saved in the 7th byte
-	if (cfg_ptr->encoder_midi_type < 0x80){
-		*buffer_ptr &= ~0x03;
-		*buffer_ptr |= (0x03 & cfg_ptr->encoder_midi_type);
-	}
-	if (cfg_ptr->encoder_midi_channel < 0x80){
-		*buffer_ptr &= ~0xF0;
-		*buffer_ptr |= (0xF0 & ((cfg_ptr->encoder_midi_channel - 1) << 4));
-	}
-	buffer_ptr++;	// 2-bits Open 0xC0
-	
-	// Encoder MIDI number & is super knob flag are saved in the 8th byte
-	if (cfg_ptr->encoder_midi_number < 0x80){
-		*buffer_ptr &= ~0x7F;
-		*buffer_ptr |= cfg_ptr->encoder_midi_number;
-	}
-	if (cfg_ptr->phenotype < 0x80){
-		*buffer_ptr &= ~0x80;
-		*buffer_ptr |= (0x80 & (cfg_ptr->phenotype << 7));
-	}
-	buffer_ptr++;  // Full
-	
-	uint8_t page_index = ENC_SETTINGS_START_PAGE + (4 * bank) + (encoder / 4);
-	
-	// Save the updated page buffer back to EEPROM
-	cpu_irq_disable();
-	nvm_eeprom_load_page_to_buffer(page_buffer);
-	nvm_eeprom_atomic_write_page(page_index);
-	cpu_irq_enable();
-
-	// !Summer2016Update: Match the newly changed input_map to match the output_map saved in eeprom
-	// - removed in favor of expanding encoder_map
-	//~ sync_input_map_to_output_map(bank*16 + encoder); // !Summer2016Update: midi_input_map bugfix
-}
-
-/**
- * Returns all encoder configuration data to the factory defaults  
-**/
-void factory_reset_encoder_config(void)
-{
 	// Create a table of the default settings common to all encoders
 	encoder_config_t enc_default;
-			
+	
 	enc_default.has_detent                 = DEF_ENC_DETENT;
 	enc_default.detent_color               = DEF_DETENT_COLOR;
 	enc_default.active_color               = DEF_ACTIVE_COLOR;    // !Summer2016Update: Overwritten later in this function by active_colors[]
@@ -428,107 +259,13 @@ void factory_reset_encoder_config(void)
 	enc_default.encoder_midi_channel       = DEF_ENC_CH;
 	enc_default.encoder_midi_type          = DEF_ENC_MIDI_TYPE;
 	enc_default.phenotype                  = DEF_PHENOTYPE;
-	enc_default.encoder_midi_number        = 0;
-	enc_default.switch_midi_number         = 0;
+	enc_default.encoder_midi_number        = encoder;				   
+	enc_default.switch_midi_number         = encoder;				   
 	enc_default.encoder_shift_midi_channel = DEF_ENC_SHIFT_CH; // !Summer2016Update: Shifted Encoders MIDI Channel
-	 
-	// !Summer2016Update active/inactive colors modified to be fixed per bank
-	uint8_t active_colors[NUM_BANKS] = {DEF_ACTIVE_COLOR_BANK1, DEF_ACTIVE_COLOR_BANK2, DEF_ACTIVE_COLOR_BANK3, DEF_ACTIVE_COLOR_BANK4};
-	uint8_t inactive_colors[NUM_BANKS] = {DEF_INACTIVE_COLOR_BANK1, DEF_INACTIVE_COLOR_BANK2, DEF_INACTIVE_COLOR_BANK3, DEF_INACTIVE_COLOR_BANK4};
 
-	// !review: encoder_settings[] is being reset, it appears by a USB Disconnection/ Reconnection
-	// - verify this, or add a routine to re-initialize encoder_settings
-
-
-	/* We then fill a page buffer with the compressed settings for 4 encoders
-	   (each encoder has 8 bytes of data allocated for its setting) */
-	uint8_t page_buffer[EEPROM_PAGE_SIZE];
-	memset(&page_buffer, 0, EEPROM_PAGE_SIZE);
+	*cfg_ptr = enc_default; 
 	
-	uint8_t* buffer_ptr = page_buffer;
-	
-	uint8_t data_byte = 0;
-	
-	//uint8_t bit;
-	
-	// Set up a Template Memory Page - (One Column of 4-Encoders) - with the default settings
-	// - buffer_ptr will be the actual table passed to the EEPROM Write Routine
-	// - It will be modded for each group of four encoders
-	for(uint8_t i=0;i<4;++i) {
-		// Switch Settings are saved in the first and second bytes
-		data_byte  = (enc_default.switch_action_type & 0x0F);
-		data_byte |= (0xF0 & (enc_default.switch_midi_channel << 4));		
-		
-		*buffer_ptr++ = data_byte;
-		
-		*buffer_ptr++ = enc_default.switch_midi_number+i;
-		
-		// Active and Inactive colors are saved in the third and fourth bytes
-		// *buffer_ptr++ = enc_default.active_color+(i*2);
-		// *buffer_ptr++ = enc_default.inactive_color+(i*2);
-		// *buffer_ptr++ = enc_default.active_color;
-		// *buffer_ptr++ = enc_default.inactive_color;
-		*buffer_ptr++ = 127;// active_colors[0];
-		*buffer_ptr++ = 127;// inactive_colors[0];
-		
-		// Has de-tent and de-tent color are saved in the 5th byte
-		*buffer_ptr++ =  (0x80 & (enc_default.has_detent << 7)) | 
-						  enc_default.detent_color;
-		
-		// Encoder Indicator & Movement type are save in the 6th byte (and now encoder_shift_midi_channel)
-		data_byte  = (0x03 & enc_default.indicator_display_type);
-		data_byte |= (0x0C & (enc_default.movement << 2));
-		data_byte |= (0xF0 & (enc_default.encoder_shift_midi_channel << 4)); // !Summer2016Update: shifted encoders midi channel
-		*buffer_ptr++ = data_byte;
-		
-		// Encoder MIDI Type & MIDI channel are saved in the 7th byte
-		data_byte  = (0x03 & enc_default.encoder_midi_type);
-		data_byte |= (0xF0 & (enc_default.encoder_midi_channel << 4));
-		*buffer_ptr++ = data_byte;
-		
-		// Encoder MIDI number is saved in the 8th byte
-		data_byte = (0x7f & (enc_default.encoder_midi_number+i));
-		data_byte |= (0x80 & (enc_default.phenotype << 7));
-		*buffer_ptr++ = data_byte;
-		
-	}
-	
-	uint8_t page_index = ENC_SETTINGS_START_PAGE;
-	
-	// For Each Memory Page
-	// - Modify the Template, and write the page
-	for(uint8_t i=0;i<4*NUM_BANKS;++i){		// 4*NUM_BANKS, aka. NUM_ROWS_PER_BANK*NUM_BANKS 
-		// for each Row in each Bank modify the default settings
-		/* We now save the buffer to EEPROM, then increment the settings 
-		   which are unique to each encoder ie MIDI number/pitch and repeat 
-		   until we have saved all 64 encoders data */
-		
-		// !Summer2016Update: Modify Default On/Off colors by bank rather than per encoder.
-		uint8_t color_index = i >> 2;
-		uint8_t active_color = active_colors[color_index];  // Changes with each Bank
-		uint8_t inactive_color = inactive_colors[color_index]; // Changes with each bank
-		for(uint8_t j=0;j<4;++j){  // For each Data Page (Corresponds to 1 - Horizontal Row of Encoders)
-			page_buffer[(j*8)+2] = active_color; // Adjust Active Color  (All Rows should be the same for THIS BANK)
-			page_buffer[(j*8)+3] = inactive_color; // Adjust Inactive Color (ALL Rows should be the same for THIS BANK)
-			// 8 = Settings Size
-		}
-
-		// Write the Page
-		cpu_irq_disable();
-		nvm_eeprom_load_page_to_buffer(page_buffer);
-		nvm_eeprom_atomic_write_page(page_index);
-		cpu_irq_enable();
-		
-		// Modify Mapping Parameters for the next item.
-		for(uint8_t j=0;j<4;++j){  // For each Data Page (Corresponds to 1 - Horizontal Row of Encoders)
-			page_buffer[(j*8)+1] += 4; //Increment SW MIDI Pitch
-			page_buffer[(j*8)+7] += 4; //Increment ENC MIDI Number			
-		}
-		page_index++;
-	}
 }
-
-//void adjust_
 
 /**
  * Contains the main encoder task, this checks encoder hardware for change
@@ -642,6 +379,20 @@ void send_encoder_midi(uint8_t banked_encoder_idx, uint16_t value, bool state)
 	} 
 }
 
+
+/**
+ * 	For each iteration of the main loop we compare the current MIDI state with the
+ *  previous state, if changed we update that display element.
+ *
+**/
+
+static uint8_t prevIndicatorValue[16];
+static uint8_t prevSwitchColorValue[16];
+static uint8_t prevEncoderAnimationValue[16];
+static uint8_t prevSwAnimationValue[16];
+static uint8_t prevEncoderPhenotype[16];
+
+
 /**
  * Sends MIDI for a given encoder or switch. Because MIDI can only be SENT
  * for encoder of the current bank this function only accepts an index range
@@ -713,12 +464,22 @@ void process_element_midi(uint8_t channel, uint8_t type, uint8_t number, uint8_t
 
 	// we assume controls are not remapped, which means we 
 
+	static uint8_t highResPrefixValue = 0;
+
 
 	switch (channel)
 	{
 		case ENCODER_ROTARY_CHANNEL : {
-			if( type == SEND_CC && encoder_settings[number].phenotype == ENC_CONTROL_TYPE_ROTARY){
-				process_indicator_update(number, value);
+	
+			if (type == SEND_CC && number == MIDI_CC_HIGH_RESOLUTION_VELOCITY_PREFIX)
+			{
+				// message was a high resolution prefix message - we want to fetch the value, then.
+				highResPrefixValue = (value & 0x7F);
+			}
+			else if( type == SEND_CC && encoder_settings[number].phenotype == ENC_CONTROL_TYPE_ROTARY)
+			{
+				process_indicator_update(number, value, highResPrefixValue);
+				highResPrefixValue = 0;
 			}
 		}
 		break;
@@ -734,6 +495,7 @@ void process_element_midi(uint8_t channel, uint8_t type, uint8_t number, uint8_t
 		case ENCODER_CONTROL_CHANNEL: {
 			if (type == SEND_CC) {
 				encoder_settings[number].phenotype = value % ENC_CONTROL_TYPE__MAX;
+				prevEncoderPhenotype[number % 16] = 0xff; // marker so that control must redraw.
 			}
 		}
 		break;
@@ -752,36 +514,20 @@ void process_element_midi(uint8_t channel, uint8_t type, uint8_t number, uint8_t
 		break;
 	}
 	
-	
 }
 
 // Midi Feedback - Encoder Value Indicator Displays
-// value: MIDI Value (7-bit)
-// shifted: 	0 = Incoming messages is referencing base encoder mapping
-// 		1 = Incoming message is referencing shifted encoder mapping
-//void process_indicator_update(uint8_t idx, uint8_t value)
-void process_indicator_update(uint8_t idx, uint8_t value) 
+// value: MIDI Value (7-bit (msb, 7bit high res prefix))
+void process_indicator_update(uint8_t idx, uint8_t value_msb, uint8_t value_lsb) 
 {
-	uint8_t bank    = idx >> 4;
-	uint8_t encoder = (idx & 0x0F);
-	uint8_t virtual_encoder_id = idx;
+	uint8_t bank               = idx >> 4;
+	uint8_t encoder            = (idx & 0x0F);
 	
-	// !review: should be able to merge cases here, now that raw_encoder_value has been expanded
-	// Update the raw value if bank is active, and the encoder is not currently moving
-	if (bank == current_encoder_bank()) 
-	{
-		if ( !encoder_is_active(encoder)  ||  encoder_midi_type_is_relative(encoder) ) {
-			int16_t raw_value= ((uint16_t)value) << 7;
-			raw_encoder_value[virtual_encoder_id] = raw_value;
-			indicator_value_buffer[bank][encoder] = value;
-		}
-	
-	} else {
-		// otherwise update the value buffer
-		int16_t raw_value= ((uint16_t)value) << 7;
-		raw_encoder_value[virtual_encoder_id] = raw_value;
-		indicator_value_buffer[bank][encoder] = value;
-	}
+	int16_t raw_value= (((uint16_t)value_msb) << 7);
+	raw_value |= value_lsb;
+
+	raw_encoder_value[idx] = raw_value;
+	indicator_value_buffer[bank][encoder] = value_msb;
 }
 
 // Midi Feedback - Switch State Indicators (RGB LEDs)
@@ -856,17 +602,6 @@ void process_shift_update(uint8_t idx, uint8_t value)
 	
 }
 
-/**
- * 	For each iteration of the main loop we compare the current MIDI state with the
- *  previous state, if changed we update that display element.
- *
-**/
-
-static uint8_t prevIndicatorValue[16];
-static uint8_t prevSwitchColorValue[16];
-static uint8_t prevEncoderAnimationValue[16];
-static uint8_t prevSwAnimationValue[16];
-static uint8_t prevEncoderPhenotype[16];
 
 // - Switch Animations 1-48, 127
 bool animation_is_switch_rgb(uint8_t animation_value) { // !Summer2016Update: Dual Animations - Identify to Eliminate Conflicts
@@ -997,49 +732,70 @@ void update_encoder_display(void)
 	uint8_t currentPhenotype      = encoder_settings[banked_encoder_idx].phenotype;
 
 
-	if (currentPhenotype == ENC_CONTROL_TYPE_DISABLED){
-		
-		if (currentPhenotype != prevEncoderPhenotype[idx])	 {
+	if (currentPhenotype != prevEncoderPhenotype){
 
-			// draw disabled encoder
+		// encoder phenotype has changed
 
-			build_rgb(idx, 0, 0);
-			set_encoder_indicator(idx, 0, false, ENC_DISPLAY_MODE_BLENDED_BAR,	0);
-			prevSwitchColorValue[idx] = -1;
-			prevIndicatorValue[idx]   = -1;
-			prevEncoderPhenotype[idx] = currentPhenotype;			
+		switch (currentPhenotype){
+			case ENC_CONTROL_TYPE_DISABLED:
+			{
+				// draw disabled encoder
+
+				build_rgb(idx, 0, 0);
+				set_encoder_indicator(idx, 0, false, ENC_DISPLAY_MODE_BLENDED_BAR,	0);
+				prevSwitchColorValue[idx] = -1;
+				prevIndicatorValue[idx]   = -1;
+				prevEncoderPhenotype[idx] = currentPhenotype;
+
+			}
+			break;
+			case ENC_CONTROL_TYPE_ROTARY:
+			{
+				// solid white rgb when rotary
+				build_rgb(idx, colorMap7[127], 0 ); // white, full brightness
+				prevSwitchColorValue[idx] = -1;
+				prevEncoderPhenotype[idx] = currentPhenotype;
+
+			}
+			break;
+			case ENC_CONTROL_TYPE_SWITCH:
+			{
+				// disable indicator bar when switch
+				set_encoder_indicator(idx, 0, false, ENC_DISPLAY_MODE_BLENDED_BAR,	0);
+				prevIndicatorValue[idx]   = -1;
+				prevEncoderPhenotype[idx] = currentPhenotype;
+
+			}
+			break;
+
 		}
+	}
 
-	} else if (currentPhenotype == ENC_CONTROL_TYPE_ROTARY){
-	   
-	   	// Draw rotary encoder
 
-		if (currentPhenotype != prevEncoderPhenotype[idx])	 {
-			build_rgb(idx, 0, 0);
-			prevSwitchColorValue[idx] = -1;
-			prevEncoderPhenotype[idx] = currentPhenotype;
+	switch (currentPhenotype){
+		case ENC_CONTROL_TYPE_DISABLED:
+		{
+
 		}
-	   	
-	   	if (currentIndicatorValue != prevIndicatorValue[idx]) {
-		   	set_encoder_indicator(idx, currentIndicatorValue, false, ENC_DISPLAY_MODE_BLENDED_BAR,	encoder_settings[banked_encoder_idx].detent_color);
-		   	prevIndicatorValue[idx] = currentIndicatorValue;
-	   	}
-
-	} else if (currentPhenotype == ENC_CONTROL_TYPE_SWITCH){
-
-		// draw switch encoder
-
-		if (currentPhenotype != prevEncoderPhenotype[idx])	 {
-			set_encoder_indicator(idx, 0, false, ENC_DISPLAY_MODE_BLENDED_BAR,	0);
-			prevIndicatorValue[idx]   = -1;
-			prevEncoderPhenotype[idx] = currentPhenotype;
+		break;
+		case ENC_CONTROL_TYPE_ROTARY:
+		{
+			// Draw rotary encoder
+			if (currentIndicatorValue != prevIndicatorValue[idx]) {
+				set_encoder_indicator(idx, currentIndicatorValue, false, ENC_DISPLAY_MODE_BLENDED_BAR,	encoder_settings[banked_encoder_idx].detent_color);
+				prevIndicatorValue[idx] = currentIndicatorValue;
+			}
 		}
-		
-		if (currentRGBValue != prevSwitchColorValue[idx]) {
-			set_encoder_rgb(idx, currentRGBValue);
-			prevSwitchColorValue[idx] = currentRGBValue;
+		break;
+		case ENC_CONTROL_TYPE_SWITCH:
+		{
+			// draw switch encoder
+			if (prevSwitchColorValue != currentRGBValue){
+				set_encoder_rgb(idx, currentRGBValue);
+				prevSwitchColorValue[idx] = currentRGBValue;
+			}
 		}
-
+		break;
 	}
 
 	// Increment the encoder index for next time

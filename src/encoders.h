@@ -130,8 +130,6 @@
 
 		/* Function Prototypes: */
 		void get_encoder_config(uint8_t bank, uint8_t encoder, encoder_config_t *cfg_ptr);
-		void save_encoder_config(uint8_t bank, uint8_t encoder, encoder_config_t *cfg_ptr);
-		void factory_reset_encoder_config(void);
 		
 		void encoders_init(void);
 		void process_encoder_input(void);
@@ -141,7 +139,7 @@
 		void refresh_display(void);
 		
 		void process_element_midi(uint8_t channel, uint8_t type, uint8_t number, uint8_t value, uint8_t state);
-		void process_indicator_update(uint8_t idx, uint8_t value); 
+		void process_indicator_update(uint8_t idx, uint8_t value_msb, uint8_t value_lsb); 
 		void process_sw_toggle_update(uint8_t idx, uint8_t value); // !Summer2016Update: Toggle State Feedback
 		void process_sw_encoder_shift_update(uint8_t idx, uint8_t value); // !Summer2016Update: Shifted Encoder Switch: Toggle State Feedback
 		void process_sw_rgb_update(uint8_t idx, uint8_t value);

@@ -508,11 +508,11 @@ void build_rgb(uint8_t encoder, uint32_t color, uint8_t level)
 	
 	for (uint8_t i=0;i<NUM_OF_FRAMES;++i)
 	{
-		// Set RGB bits to "OFF" first
+		// Set BGR bits to "OFF" first
 		*ptr |= 0x1C;		
 		// Covert to 8 Bit space
-		uint8_t value = (i << 1)*(127/NUM_OF_FRAMES);
-		//uint8_t value = (i << 1);
+		
+		uint8_t value = (i << 1); // same as: value = (i * 2)
 		
 		if (blue_byte > value){
 			*ptr &= ~0x04; 

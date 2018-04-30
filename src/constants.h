@@ -151,18 +151,18 @@
 #define DEF_ENC_CH		        0x00            // Enc def Ch = 0
 #define DEF_SW_CH		        0x01            // SW  def Ch = 1
 #define DEF_ENC_SHIFT_CH		0x04			// !Summer2016Update: encoder_shift_midi_channel -> Encoder shifted channel def
-#define DEF_ACTIVE_COLOR		51
-#define DEF_INACTIVE_COLOR      1
+#define DEF_ACTIVE_COLOR		43
+#define DEF_INACTIVE_COLOR      85
 
 // !Summer2016Update mark: Default Colors (first used in build 20160622
-#define DEF_ACTIVE_COLOR_BANK1		25
-#define DEF_INACTIVE_COLOR_BANK1   113
-#define DEF_ACTIVE_COLOR_BANK2		81
-#define DEF_INACTIVE_COLOR_BANK2    63
-#define DEF_ACTIVE_COLOR_BANK3		25
-#define DEF_INACTIVE_COLOR_BANK3   100
-#define DEF_ACTIVE_COLOR_BANK4		25
-#define DEF_INACTIVE_COLOR_BANK4     0
+//#define DEF_ACTIVE_COLOR_BANK1		25
+//#define DEF_INACTIVE_COLOR_BANK1   113
+//#define DEF_ACTIVE_COLOR_BANK2		81
+//#define DEF_INACTIVE_COLOR_BANK2    63
+//#define DEF_ACTIVE_COLOR_BANK3		25
+//#define DEF_INACTIVE_COLOR_BANK3   100
+//#define DEF_ACTIVE_COLOR_BANK4		25
+//#define DEF_INACTIVE_COLOR_BANK4     0
 
 
 

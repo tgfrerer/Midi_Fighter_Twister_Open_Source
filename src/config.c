@@ -101,12 +101,12 @@ void send_config_data (void)
                                 0x1, // 0x0 = request, 0x1 = response
                                 0 , global_midi_system_channel + 1,    // Not used ....
 								1 , side_cfg->side_is_banked,
-								2 , side_cfg->sw_action[0],
-								3 , side_cfg->sw_action[1],
-								4 , side_cfg->sw_action[2],
-								5 , side_cfg->sw_action[3],
-								6 , side_cfg->sw_action[4],
-								7 , side_cfg->sw_action[5],
+								2 , side_cfg->sw_actions[0],
+								3 , side_cfg->sw_actions[1],
+								4 , side_cfg->sw_actions[2],
+								5 , side_cfg->sw_actions[3],
+								6 , side_cfg->sw_actions[4],
+								7 , side_cfg->sw_actions[5],
 								8 , global_super_knob_start,
 								9 , global_super_knob_end,
 								31, global_rgb_brightness,
@@ -246,7 +246,7 @@ static void sysExCmdBulkXfer(uint8_t length, uint8_t* buffer) // Process/ParseSy
 		        }
 
 		        // And save the new settings to eeprom
-		        save_encoder_config(bank, encoder, &config);
+		        //save_encoder_config(bank, encoder, &config);
 
 		        // Disable the display until all config data is received
 		        display_disable();
@@ -340,68 +340,93 @@ void config_init(void)
     sysex_install(SYSEX_COMMAND_BULK_XFER, sysExCmdBulkXfer);
 	
 	// If our EEPROM layout has changed, reset everything.
-	if (eeprom_read(EE_EEPROM_VERSION) != EEPROM_LAYOUT) {
+	//if (eeprom_read(EE_EEPROM_VERSION) != EEPROM_LAYOUT) {
 		config_factory_reset();
-	}
+	//}
 }
 
 void load_config(void)
 {
-	cpu_irq_disable();
+	//cpu_irq_disable();
+	//
+	//// Load system settings
+	//global_midi_system_channel = eeprom_read(EE_MIDI_CHANNEL);
+	//
+	//// Load side button settings
+	//side_sw_settings_t side_sw_cfg;
+	//
+	//side_sw_cfg.side_is_banked = eeprom_read(EE_BANK_SIDE_SW);
+	//side_sw_cfg.sw_action[0]   = eeprom_read(EE_SIDE_SW_1_FUNC);
+	//side_sw_cfg.sw_action[1]   = eeprom_read(EE_SIDE_SW_2_FUNC);
+	//side_sw_cfg.sw_action[2]   = eeprom_read(EE_SIDE_SW_3_FUNC);
+	//side_sw_cfg.sw_action[3]   = eeprom_read(EE_SIDE_SW_4_FUNC);
+	//side_sw_cfg.sw_action[4]   = eeprom_read(EE_SIDE_SW_5_FUNC);
+	//side_sw_cfg.sw_action[5]   = eeprom_read(EE_SIDE_SW_6_FUNC);
+	//
+	//global_super_knob_start	   = eeprom_read(EE_SUPER_KNOB_START);
+	//global_super_knob_end      = eeprom_read(EE_SUPER_KNOB_END);
+	//global_rgb_brightness      = eeprom_read(EE_RGB_BRIGHTNESS);
+	//global_ind_brightness      = eeprom_read(EE_IND_BRIGHTNESS);
+	//
+	//side_switch_config(&side_sw_cfg);
+	//
+	//cpu_irq_enable();
+
 	
 	// Load system settings
-	global_midi_system_channel = eeprom_read(EE_MIDI_CHANNEL);
+	global_midi_system_channel = DEF_MIDI_CHANNEL;
 	
 	// Load side button settings
-	side_sw_settings_t side_sw_cfg;
+	side_sw_settings_t side_sw_cfg = {
+		.sw_actions = {
+			DEF_SIDE_SW_1_FUNC,
+			DEF_SIDE_SW_2_FUNC,
+			DEF_SIDE_SW_3_FUNC,
+			DEF_SIDE_SW_4_FUNC,
+			DEF_SIDE_SW_5_FUNC,
+			DEF_SIDE_SW_6_FUNC,
+		},
+		.side_is_banked = DEF_BANK_SIDE_SW,
+	};
 	
-	side_sw_cfg.side_is_banked = eeprom_read(EE_BANK_SIDE_SW);
-	side_sw_cfg.sw_action[0]   = eeprom_read(EE_SIDE_SW_1_FUNC);
-	side_sw_cfg.sw_action[1]   = eeprom_read(EE_SIDE_SW_2_FUNC);
-	side_sw_cfg.sw_action[2]   = eeprom_read(EE_SIDE_SW_3_FUNC);
-	side_sw_cfg.sw_action[3]   = eeprom_read(EE_SIDE_SW_4_FUNC);
-	side_sw_cfg.sw_action[4]   = eeprom_read(EE_SIDE_SW_5_FUNC);
-	side_sw_cfg.sw_action[5]   = eeprom_read(EE_SIDE_SW_6_FUNC);
-	
-	global_super_knob_start	   = eeprom_read(EE_SUPER_KNOB_START);
-	global_super_knob_end      = eeprom_read(EE_SUPER_KNOB_END);
-	global_rgb_brightness      = eeprom_read(EE_RGB_BRIGHTNESS);
-	global_ind_brightness      = eeprom_read(EE_IND_BRIGHTNESS);
+	global_super_knob_start	   = DEF_SUPER_START_VALUE;
+	global_super_knob_end      = DEF_SUPER_END_VALUE;
+	global_rgb_brightness      = DEF_RGB_BRIGHTNESS;
+	global_ind_brightness      = DEF_IND_BRIGHTNESS;
 	
 	side_switch_config(&side_sw_cfg);
 	
-	cpu_irq_enable();
 }
 
 // This could be re-written to use config structures
 // with defaults saved in PROGEM
 void config_factory_reset(void)
 {
-	cpu_irq_disable();
-	
-	eeprom_write(EE_EEPROM_VERSION, EEPROM_LAYOUT);
-	
-	// System Settings
-	
-	eeprom_write(EE_MIDI_CHANNEL, DEF_MIDI_CHANNEL);
-	
-	// Side Switch Settings
-	
-	eeprom_write(EE_BANK_SIDE_SW,   DEF_BANK_SIDE_SW);
-	eeprom_write(EE_SIDE_SW_1_FUNC, DEF_SIDE_SW_1_FUNC);
-	eeprom_write(EE_SIDE_SW_2_FUNC, DEF_SIDE_SW_2_FUNC);
-	eeprom_write(EE_SIDE_SW_3_FUNC, DEF_SIDE_SW_3_FUNC);
-	eeprom_write(EE_SIDE_SW_4_FUNC, DEF_SIDE_SW_4_FUNC);
-	eeprom_write(EE_SIDE_SW_5_FUNC, DEF_SIDE_SW_5_FUNC);
-	eeprom_write(EE_SIDE_SW_6_FUNC, DEF_SIDE_SW_6_FUNC);
-	eeprom_write(EE_SUPER_KNOB_START, DEF_SUPER_START_VALUE);
-	eeprom_write(EE_SUPER_KNOB_END, DEF_SUPER_END_VALUE);
-	eeprom_write(EE_RGB_BRIGHTNESS, DEF_RGB_BRIGHTNESS);
-	eeprom_write(EE_IND_BRIGHTNESS, DEF_IND_BRIGHTNESS);
-	
-	cpu_irq_enable();
+	//cpu_irq_disable();
+	//
+	//eeprom_write(EE_EEPROM_VERSION, EEPROM_LAYOUT);
+	//
+	//// System Settings
+	//
+	//eeprom_write(EE_MIDI_CHANNEL, DEF_MIDI_CHANNEL);
+	//
+	//// Side Switch Settings
+	//
+	//eeprom_write(EE_BANK_SIDE_SW,   DEF_BANK_SIDE_SW);
+	//eeprom_write(EE_SIDE_SW_1_FUNC, DEF_SIDE_SW_1_FUNC);
+	//eeprom_write(EE_SIDE_SW_2_FUNC, DEF_SIDE_SW_2_FUNC);
+	//eeprom_write(EE_SIDE_SW_3_FUNC, DEF_SIDE_SW_3_FUNC);
+	//eeprom_write(EE_SIDE_SW_4_FUNC, DEF_SIDE_SW_4_FUNC);
+	//eeprom_write(EE_SIDE_SW_5_FUNC, DEF_SIDE_SW_5_FUNC);
+	//eeprom_write(EE_SIDE_SW_6_FUNC, DEF_SIDE_SW_6_FUNC);
+	//eeprom_write(EE_SUPER_KNOB_START, DEF_SUPER_START_VALUE);
+	//eeprom_write(EE_SUPER_KNOB_END, DEF_SUPER_END_VALUE);
+	//eeprom_write(EE_RGB_BRIGHTNESS, DEF_RGB_BRIGHTNESS);
+	//eeprom_write(EE_IND_BRIGHTNESS, DEF_IND_BRIGHTNESS);
+	//
+	//cpu_irq_enable();
 	
 	// Encoder Settings
-	factory_reset_encoder_config();
+	// factory_reset_encoder_config();
 }
 

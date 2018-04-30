@@ -54,7 +54,7 @@
 	
 		// Structure which hold side switch settings
 		typedef struct {
-			side_sw_action_t sw_action[6];
+			side_sw_action_t sw_actions[6];
 			bool			 side_is_banked;
 		} side_sw_settings_t;
 		

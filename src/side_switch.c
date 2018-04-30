@@ -70,14 +70,7 @@ void set_op_mode(op_mode_t new_mode){
 // Temporary until settings functionality is added
 void side_switch_config(side_sw_settings_t *settings)
 {
-	side_sw_cfg.side_is_banked = settings->side_is_banked;
-	
-	side_sw_cfg.sw_action[0] = settings->sw_action[0];
-	side_sw_cfg.sw_action[1] = settings->sw_action[1];
-	side_sw_cfg.sw_action[2] = settings->sw_action[2];
-	side_sw_cfg.sw_action[3] = settings->sw_action[3];
-	side_sw_cfg.sw_action[4] = settings->sw_action[4];
-	side_sw_cfg.sw_action[5] = settings->sw_action[5];
+	side_sw_cfg = *settings;
 }
 
 side_sw_settings_t* get_side_switch_config(void)
@@ -124,7 +117,7 @@ void do_side_switch_function(uint8_t switch_num, switch_event_t state)
 	uint8_t bank = side_sw_cfg.side_is_banked ? current_encoder_bank() : 0;
 	
 	// Perform the switch action
-	switch (side_sw_cfg.sw_action[switch_num]) {
+	switch (side_sw_cfg.sw_actions[switch_num]) {
 		case CC_HOLD_SS:{
 			// The switch sends a CC so send that CC
 			if(state == SW_DOWN){
